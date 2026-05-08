@@ -5,6 +5,8 @@ export interface StoredUser {
   last_name: string
   email: string
   groups: string[]
+  is_staff?: boolean
+  is_superuser?: boolean
 }
 
 export function getStoredUser(): StoredUser | null {
