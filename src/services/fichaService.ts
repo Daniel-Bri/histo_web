@@ -8,8 +8,18 @@ export interface FichaListResponse {
   results: FichaBrief[]
 }
 
+export interface FichaListParams {
+  estado?: string
+  paciente?: number
+  en_curso?: boolean
+  page?: number
+  page_size?: number
+  fecha_desde?: string
+  fecha_hasta?: string
+}
+
 export const fichaService = {
-  listar: (params?: { estado?: string; paciente?: number; en_curso?: boolean; page?: number }) =>
+  listar: (params?: FichaListParams) =>
     api.get<FichaListResponse>('fichas/', { params }),
 
   obtener: (id: number) =>

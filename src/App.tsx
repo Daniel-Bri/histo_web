@@ -15,6 +15,7 @@ import PersonalForm from './pages/GestionPersonal/PersonalForm'
 import RegistroPaciente from './pages/Pacientes/RegistroPaciente'
 import UrgenciasPage from './pages/Urgencias'
 import TriajeForm from './pages/Urgencias/TriajeForm'
+import AperturaFichaColaDia from './pages/AperturaFichaColaDia'
 import SolicitudEstudios from './pages/SolicitudEstudios'
 import ColaLaboratorio from './pages/ColaLaboratorio'
 import ReportesProduccion from './pages/ReportesProduccion'
@@ -22,6 +23,7 @@ import Recetas from './pages/Recetas'
 import Configuracion from './pages/Configuracion'
 import AdminTenants from './pages/AdminTenants'
 import TenantDetalle from './pages/AdminTenants/TenantDetalle'
+import Bitacora from './pages/Auditoria/Bitacora'
 import './pages/Estudios.css' 
 
 export default function App() {
@@ -45,6 +47,7 @@ export default function App() {
           <Route path="/personal/:id/editar" element={<PersonalForm />} />
           <Route path="/urgencias"                    element={<UrgenciasPage />} />
           <Route path="/urgencias/:fichaId/triaje"  element={<TriajeForm />} />
+          <Route path="/fichas/cola-dia"             element={<AperturaFichaColaDia />} />
           <Route path="/historial"  element={<EnConstruccion titulo="Historial Clínico" />} />
           <Route path="/documentos" element={<EnConstruccion titulo="Documentos" />} />
           <Route path="/agenda"     element={<EnConstruccion titulo="Agenda" />} />
@@ -55,6 +58,7 @@ export default function App() {
           <Route path="/configuracion"          element={<Configuracion />} />
           <Route path="/admin/tenants"          element={<AdminTenants />} />
           <Route path="/admin/tenants/:id"      element={<TenantDetalle />} />
+          <Route path="/auditoria/bitacora"     element={<Bitacora />} />
         </Route>
         
         {/* Redirige la raíz al dashboard */}

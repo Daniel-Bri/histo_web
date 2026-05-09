@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/axiosConfig'
 import { useAuth } from '../hooks/useAuth'
@@ -21,8 +21,19 @@ function ModIcon({ path, color }: { path: string; color: string }) {
   )
 }
 
-const MODULOS = [
+type ModuloCard = {
+  titulo: string
+  desc: string
+  icon: string
+  color: string
+  ruta: string
+  soon?: boolean
+  roles?: string[]
+}
+
+const MODULOS: ModuloCard[] = [
   { titulo: 'Pacientes',  desc: 'Registro, búsqueda y expedientes',  icon: 'users',     color: '#0003B8', ruta: '/pacientes' },
+  { titulo: 'Apertura de ficha', desc: 'Apertura y cola de atencion del dia', icon: 'clipboard', color: '#00A896', ruta: '/fichas/cola-dia', roles: ['Administrativo', 'Director'] },
   { titulo: 'Historial',  desc: 'Consultas y diagnósticos previos',   icon: 'clipboard', color: '#00A896', ruta: '/historial', soon: true },
   { titulo: 'Documentos', desc: 'Gestión documental clínica',         icon: 'file',      color: '#0003B8', ruta: '/documentos', soon: true },
   { titulo: 'Agenda',     desc: 'Citas y turnos programados',         icon: 'calendar',  color: '#00A896', ruta: '/agenda',     soon: true },
@@ -51,6 +62,10 @@ export default function Dashboard() {
   }
 
   const rol = user.groups?.[0] ?? 'Sin rol'
+  const modulosDisponibles = useMemo(
+    () => MODULOS.filter((m) => !m.roles || m.roles.some((r) => user.groups?.includes(r))),
+    [user.groups],
+  )
 
   return (
     <div style={{ padding: '32px' }}>
@@ -127,7 +142,7 @@ export default function Dashboard() {
         MÓDULOS DISPONIBLES
       </h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
-        {MODULOS.map(mod => (
+        {modulosDisponibles.map(mod => (
           <div
             key={mod.titulo}
             onClick={() => navigate(mod.ruta)}
