@@ -188,6 +188,7 @@ const NAV: NavSection[] = [
     staffOnly: true,
     items: [
       { label: 'Panel SaaS', path: '/admin/tenants', icon: 'cpu', staffOnly: true },
+      { label: 'Usuarios por Clínica', path: '/admin/usuarios-clinica', icon: 'users', staffOnly: true },
     ],
   },
 ]

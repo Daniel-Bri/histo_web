@@ -118,6 +118,14 @@ export function attachAuthInterceptors(client: AxiosInstance) {
       const original = error.config as RetriableConfig | undefined
       const status = error.response?.status
 
+      // 403 → redirigir a pantalla de acceso denegado (sin cerrar sesión)
+      if (status === 403) {
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/acceso-denegado')) {
+          window.location.assign('/acceso-denegado')
+        }
+        return Promise.reject(error)
+      }
+
       if (status !== 401 || !original || original._retry) {
         return Promise.reject(error)
       }

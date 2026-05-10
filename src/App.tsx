@@ -21,8 +21,10 @@ import ColaLaboratorio from './pages/ColaLaboratorio'
 import ReportesProduccion from './pages/ReportesProduccion'
 import Recetas from './pages/Recetas'
 import Configuracion from './pages/Configuracion'
+import AccesoDenegado from './pages/AccesoDenegado'
 import AdminTenants from './pages/AdminTenants'
 import TenantDetalle from './pages/AdminTenants/TenantDetalle'
+import UsuariosPorClinica from './pages/AdminTenants/UsuariosPorClinica'
 import './pages/Estudios.css' 
 
 export default function App() {
@@ -32,6 +34,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/olvidar-password" element={<OlvidarPassword />} />
+        <Route path="/acceso-denegado" element={<AccesoDenegado code={403} />} />
+        <Route path="/no-autorizado"   element={<AccesoDenegado code={401} />} />
 
         {/* Rutas protegidas con sidebar (Layout) */}
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -55,8 +59,9 @@ export default function App() {
           <Route path="/reportes/produccion" element={<ReportesProduccion />} />
           <Route path="/recetas" element={<Recetas />} />
           <Route path="/configuracion"          element={<Configuracion />} />
-          <Route path="/admin/tenants"          element={<AdminTenants />} />
-          <Route path="/admin/tenants/:id"      element={<TenantDetalle />} />
+          <Route path="/admin/tenants"             element={<AdminTenants />} />
+          <Route path="/admin/tenants/:id"        element={<TenantDetalle />} />
+          <Route path="/admin/usuarios-clinica"   element={<UsuariosPorClinica />} />
         </Route>
         
         {/* Redirige la raíz al dashboard */}
