@@ -46,6 +46,22 @@ const btnOutline: React.CSSProperties = {
   marginTop: '6px',
 }
 
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: FONDO }}>
+      <div style={{ background: 'white', borderRadius: '16px', padding: '40px', width: '380px', boxShadow: '0 4px 24px rgba(0,35,184,0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px' }}>
+          <div style={{ background: ACCENT, borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '14px' }}>
+            HL
+          </div>
+          <span style={{ fontWeight: 700, fontSize: '20px', color: PRIMARY }}>HistoLink</span>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export default function OlvidarPassword() {
   const navigate = useNavigate()
 
@@ -104,22 +120,6 @@ export default function OlvidarPassword() {
       setLoading(false)
     }
   }
-
-  // ── Layout compartido ───────────────────────────────────────────────
-  const Card = ({ children }: { children: React.ReactNode }) => (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: FONDO }}>
-      <div style={{ background: 'white', borderRadius: '16px', padding: '40px', width: '380px', boxShadow: '0 4px 24px rgba(0,35,184,0.08)' }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '28px' }}>
-          <div style={{ background: ACCENT, borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: '14px' }}>
-            HL
-          </div>
-          <span style={{ fontWeight: 700, fontSize: '20px', color: PRIMARY }}>HistoLink</span>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
 
   // ── Vista: éxito ────────────────────────────────────────────────────
   if (step === 'success') {
