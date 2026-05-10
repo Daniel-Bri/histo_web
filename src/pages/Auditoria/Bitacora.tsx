@@ -2,16 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { useAuth } from '../../hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import { hasRole } from '../../utils/auth';
 import { auditoriaService } from '../../services/auditoriaService';
-import { fetchUsuariosSinPerfil, UsuarioSinPerfil } from '../../services/usuarioService';
-import { BitacoraEntry, BitacoraFilters } from '../../types/auditoria.types';
+import { fetchUsuariosSinPerfil } from '../../services/usuarioService';
+import type { UsuarioSinPerfil } from '../../services/usuarioService';
+import type { BitacoraEntry, BitacoraFilters } from '../../types/auditoria.types';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import AlertError from '../../components/AlertError';
 import SelectField from '../../components/ui/SelectField';
-import InputField from '../../components/ui/InputField';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -39,8 +38,6 @@ const MODULOS = [
 ];
 
 export default function Bitacora() {
-  const { user } = useAuth();
-  
   // Permisos: Administrador o Auditor
   const isAdminOrAuditor = hasRole('Administrador', 'Auditor');
 
