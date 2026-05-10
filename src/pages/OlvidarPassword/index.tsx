@@ -81,8 +81,13 @@ export default function OlvidarPassword() {
     try {
       await api.post('auth/forgot-password/', { email: email.trim().toLowerCase() })
       setStep('code')
-    } catch {
-      setError('Error al enviar el código. Verifica tu conexión.')
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      if (status === 500) {
+        setError('El servidor no pudo enviar el correo. Verifica la configuración SMTP en el servidor.')
+      } else {
+        setError('No se pudo conectar. Verifica tu conexión a internet.')
+      }
     } finally {
       setLoading(false)
     }
