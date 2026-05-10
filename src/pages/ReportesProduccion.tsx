@@ -76,6 +76,36 @@ function prettyValue(value: unknown): string {
   return JSON.stringify(value)
 }
 
+const COLUMN_CONFIG: Record<string, Array<{ key: string; label: string }>> = {
+  consultas: [
+    { key: 'paciente', label: 'Paciente' },
+    { key: 'ci', label: 'CI' },
+    { key: 'fecha_consulta', label: 'Fecha' },
+    { key: 'medico', label: 'Médico' },
+    { key: 'motivo_consulta', label: 'Motivo' },
+    { key: 'codigo_cie10', label: 'CIE-10' },
+    { key: 'estado', label: 'Estado' },
+  ],
+  triajes: [
+    { key: 'paciente', label: 'Paciente' },
+    { key: 'fecha', label: 'Fecha' },
+    { key: 'nivel_urgencia', label: 'Urgencia' },
+    { key: 'fc', label: 'FC' },
+    { key: 'fr', label: 'FR' },
+    { key: 'temperatura', label: 'Temperatura' },
+    { key: 'saturacion', label: 'Saturación' },
+    { key: 'eva', label: 'EVA' },
+    { key: 'estado', label: 'Estado' },
+  ],
+  recetas: [
+    { key: 'numero_receta', label: 'N° receta' },
+    { key: 'fecha_emision', label: 'Fecha' },
+    { key: 'paciente', label: 'Paciente' },
+    { key: 'medico', label: 'Médico' },
+    { key: 'estado', label: 'Estado' },
+  ],
+}
+
 function parseFileNameFromDisposition(contentDisposition?: string, fallback = 'reporte') {
   if (!contentDisposition) return fallback
   const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
@@ -117,9 +147,19 @@ export default function ReportesProduccion() {
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
   const [payload, setPayload] = useState<ReporteProduccionPayload | null>(null)
+  const [hasUserRequestedDetail, setHasUserRequestedDetail] = useState(false)
+  const [consultaPage, setConsultaPage] = useState(1)
+  const [recetaPage, setRecetaPage] = useState(1)
+  const [triajePage, setTriajePage] = useState(1)
   const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null)
+  const PAGE_SIZE = 10
 
   const rows = payload?.filas ?? []
+  const tipoReporte = payload?.tipo_reporte ?? 'resumen_general'
+  const detalleConsultas = payload?.detalle_consultas ?? []
+  const detalleRecetas = payload?.detalle_recetas ?? []
+  const detalleTriajes = payload?.detalle_triajes ?? []
+  const distribucionTriajes = payload?.triajes_por_nivel ?? []
   const hasResumenData = useMemo(() => {
     if (!payload) return false
     const r = payload.resumen
@@ -132,16 +172,37 @@ export default function ReportesProduccion() {
       r.tasa_derivacion_pct > 0
     )
   }, [payload])
-  const hasAnyData = rows.length > 0 || hasResumenData
-
-  const columns = useMemo(() => {
-    if (!rows.length) return []
-    const preferred = ['fecha', 'medico', 'paciente', 'nivel_urgencia', 'codigo_cie10', 'diagnostico', 'consulta', 'estado']
-    const firstKeys = Object.keys(rows[0])
-    const prioritized = preferred.filter((k) => firstKeys.includes(k))
-    const remaining = firstKeys.filter((k) => !prioritized.includes(k))
-    return [...prioritized, ...remaining]
-  }, [rows])
+  const hasAnyData = hasResumenData
+  const summaryItems = useMemo(() => {
+    const r = payload?.resumen
+    if (!r) {
+      return [
+        { label: 'Total consultas', value: 0 },
+        { label: 'Total triajes', value: 0 },
+        { label: 'Recetas emitidas', value: 0 },
+      ]
+    }
+    if (tipoReporte === 'consultas') return [{ label: 'Total consultas', value: r.total_consultas }]
+    if (tipoReporte === 'triajes') return [{ label: 'Total triajes', value: r.total_triajes }]
+    if (tipoReporte === 'recetas_emitidas') return [{ label: 'Recetas emitidas', value: r.total_recetas_emitidas }]
+    if (tipoReporte === 'recetas_dispensadas') return [{ label: 'Recetas dispensadas', value: r.total_recetas_dispensadas }]
+    if (tipoReporte === 'recetas_anuladas') return [{ label: 'Recetas anuladas', value: r.total_recetas_anuladas }]
+    if (tipoReporte === 'recetas') {
+      return [
+        { label: 'Recetas emitidas', value: r.total_recetas_emitidas },
+        { label: 'Recetas dispensadas', value: r.total_recetas_dispensadas },
+        { label: 'Recetas anuladas', value: r.total_recetas_anuladas },
+      ]
+    }
+    return [
+      { label: 'Total consultas', value: r.total_consultas },
+      { label: 'Total triajes', value: r.total_triajes },
+      { label: 'Recetas emitidas', value: r.total_recetas_emitidas },
+      { label: 'Recetas dispensadas', value: r.total_recetas_dispensadas },
+      { label: 'Recetas anuladas', value: r.total_recetas_anuladas },
+      { label: 'Tasa derivación', value: `${(r.tasa_derivacion_pct ?? 0).toFixed(2)}%` },
+    ]
+  }, [payload, tipoReporte])
 
   const hasNormalFilters = useMemo(() => {
     const medicoNameDiffers = !isMedico
@@ -156,19 +217,26 @@ export default function ReportesProduccion() {
       filters.codigo_cie10.trim(),
     )
   }, [filters, isMedico, medicoNombrePropio])
+  const hasAnySearchInput = useMemo(
+    () => Boolean(hasNormalFilters || smartQuery.trim()),
+    [hasNormalFilters, smartQuery],
+  )
+  const shouldShowResultsSection = tipoReporte === 'resumen_general'
+    ? hasUserRequestedDetail && hasAnySearchInput
+    : hasUserRequestedDetail
 
-  function buildSearchFilters(base: ReporteProduccionFiltros): ReporteProduccionFiltros {
+  function buildSearchFilters(base: ReporteProduccionFiltros, smartValue: string): ReporteProduccionFiltros {
     const scoped = isMedico
       ? { ...base, medico_id: String(user?.id ?? ''), medico_nombre: medicoNombrePropio }
       : base
-    const q = smartQuery.trim()
+    const q = smartValue.trim()
     if (!q) return { ...scoped, q: '' }
     if (hasNormalFilters) return { ...scoped, q: '' }
     return { ...scoped, q }
   }
 
-  async function buscar(currentFilters: ReporteProduccionFiltros) {
-    const effectiveFilters = buildSearchFilters(currentFilters)
+  async function buscar(currentFilters: ReporteProduccionFiltros, smartValue = smartQuery) {
+    const effectiveFilters = buildSearchFilters(currentFilters, smartValue)
     setLoading(true)
     setError('')
     setOk('')
@@ -176,8 +244,15 @@ export default function ReportesProduccion() {
     try {
       const data = await obtenerReporteProduccion(effectiveFilters)
       setPayload(data)
-      setAppliedFilters(effectiveFilters)
-      if (data.filas.length === 0) setOk('No hay datos para los filtros seleccionados.')
+      setConsultaPage(1)
+      setRecetaPage(1)
+      setTriajePage(1)
+      const fromBackend = (data.filtros_aplicados ?? {}) as ReporteProduccionFiltros
+      setAppliedFilters({
+        ...INITIAL_FILTERS,
+        ...effectiveFilters,
+        ...fromBackend,
+      })
     } catch (err) {
       setError(parseApiError(err, 'No se pudo cargar el reporte'))
     } finally {
@@ -237,10 +312,33 @@ export default function ReportesProduccion() {
 
   function onLimpiar() {
     setFilters(INITIAL_FILTERS)
+    setAppliedFilters({ ...INITIAL_FILTERS, tipo_reporte: 'resumen_general' })
+    setPayload(null)
     setSmartQuery('')
     setSpeechError('')
-    void buscar(INITIAL_FILTERS)
+    setError('')
+    setOk('')
+    setHasUserRequestedDetail(false)
+    setConsultaPage(1)
+    setRecetaPage(1)
+    setTriajePage(1)
+    void buscar(INITIAL_FILTERS, '')
   }
+
+  function paginate(items: Array<Record<string, unknown>>, page: number) {
+    const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+    const safePage = Math.min(Math.max(page, 1), totalPages)
+    const start = (safePage - 1) * PAGE_SIZE
+    return {
+      rows: items.slice(start, start + PAGE_SIZE),
+      totalPages,
+      safePage,
+    }
+  }
+
+  const consultaSlice = paginate(tipoReporte === 'resumen_general' ? detalleConsultas : (tipoReporte === 'consultas' ? rows : []), consultaPage)
+  const recetaSlice = paginate(tipoReporte === 'resumen_general' ? detalleRecetas : (tipoReporte.startsWith('recetas') ? rows : []), recetaPage)
+  const triajeSlice = paginate(tipoReporte === 'resumen_general' ? detalleTriajes : (tipoReporte === 'triajes' ? rows : []), triajePage)
 
   async function onStartVoice() {
     setSpeechError('')
@@ -393,7 +491,15 @@ export default function ReportesProduccion() {
         </div>
 
         <div className="reportes-actions">
-          <button type="button" className="btn-primary" disabled={loading} onClick={() => void buscar(filters)}>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={loading}
+            onClick={() => {
+              setHasUserRequestedDetail(true)
+              void buscar(filters)
+            }}
+          >
             {loading ? 'Buscando...' : 'Buscar'}
           </button>
           <button type="button" className="btn-secondary" disabled={loading} onClick={onLimpiar}>
@@ -428,62 +534,150 @@ export default function ReportesProduccion() {
         </div>
 
         <div className="reportes-summary-grid">
-          <article className="reportes-kpi-card"><span>Total consultas</span><strong>{payload?.resumen.total_consultas ?? 0}</strong></article>
-          <article className="reportes-kpi-card"><span>Total triajes</span><strong>{payload?.resumen.total_triajes ?? 0}</strong></article>
-          <article className="reportes-kpi-card"><span>Recetas emitidas</span><strong>{payload?.resumen.total_recetas_emitidas ?? 0}</strong></article>
-          <article className="reportes-kpi-card"><span>Recetas dispensadas</span><strong>{payload?.resumen.total_recetas_dispensadas ?? 0}</strong></article>
-          <article className="reportes-kpi-card"><span>Recetas anuladas</span><strong>{payload?.resumen.total_recetas_anuladas ?? 0}</strong></article>
-          <article className="reportes-kpi-card"><span>Tasa derivación</span><strong>{(payload?.resumen.tasa_derivacion_pct ?? 0).toFixed(2)}%</strong></article>
+          {summaryItems.map((item, idx) => (
+            <article key={`${item.label}-${idx}`} className="reportes-kpi-card">
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </article>
+          ))}
         </div>
-        {!loading && !hasAnyData && (
+        {payload?.advertencias?.length ? (
+          <div className="reportes-empty-state" style={{ marginTop: 10 }}>
+            {payload.advertencias.join(' ')}
+          </div>
+        ) : null}
+        {!loading && payload && !hasAnyData && (
           <div className="reportes-empty-state">
-            No hay datos para este periodo y filtros. Ajusta fecha, médico, urgencia o búsqueda libre.
+            No hay datos para los filtros seleccionados.
           </div>
         )}
       </section>
 
       <section className="estudios-shell-card">
         <h2 className="estudios-section-title">Resultados</h2>
-        <div className="estudios-desktop-table">
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #dbe4ff', color: '#0f2c7a' }}>
-                  {columns.length > 0 ? columns.map((col) => (
-                    <th key={col} style={{ textAlign: 'left', padding: '10px 8px', textTransform: 'capitalize' }}>{col.replaceAll('_', ' ')}</th>
-                  )) : (
-                    <th style={{ textAlign: 'left', padding: '10px 8px' }}>Sin datos</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr><td style={{ padding: '12px 8px', color: '#667085' }}>Sin filas de detalle para mostrar.</td></tr>
-                ) : rows.map((row, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid #eef2ff' }}>
-                    {columns.map((col) => (
-                      <td key={col} style={{ padding: '10px 8px', color: '#1f2f54' }}>{prettyValue(row[col])}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {!shouldShowResultsSection && (
+          <div className="consulta-item consulta-item-muted">
+            Realiza una búsqueda o aplica filtros para ver el detalle.
           </div>
-        </div>
+        )}
+        {shouldShowResultsSection && (
+          <>
+        {(tipoReporte === 'triajes' || (tipoReporte === 'resumen_general' && hasUserRequestedDetail && hasAnySearchInput)) && (
+          <>
+            <h3 className="estudios-section-title" style={{ fontSize: 14, marginTop: 8 }}>Distribución de Triajes</h3>
+            <div className="estudios-desktop-table">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #dbe4ff', color: '#0f2c7a' }}>
+                      <th style={{ textAlign: 'left', padding: '10px 8px' }}>Nivel</th>
+                      <th style={{ textAlign: 'left', padding: '10px 8px' }}>Total</th>
+                      <th style={{ textAlign: 'left', padding: '10px 8px' }}>%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {distribucionTriajes.length === 0 ? <tr><td colSpan={3} style={{ padding: '12px 8px', color: '#667085' }}>Sin filas de detalle para mostrar.</td></tr> : distribucionTriajes.map((r, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #eef2ff' }}>
+                        <td style={{ padding: '10px 8px' }}>{prettyValue(r.nivel_urgencia)}</td>
+                        <td style={{ padding: '10px 8px' }}>{prettyValue(r.total)}</td>
+                        <td style={{ padding: '10px 8px' }}>{prettyValue(r.porcentaje)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
 
-        <div className="estudios-mobile-cards">
-          {rows.length === 0 && <div className="consulta-item consulta-item-muted">Sin filas de detalle para mostrar.</div>}
-          {rows.map((row, idx) => (
-            <article key={idx} className="consulta-resumen" style={{ marginBottom: 10 }}>
-              {columns.map((col) => (
-                <p key={col} style={{ margin: '4px 0', fontSize: 13 }}>
-                  <strong style={{ color: '#0f2c7a', textTransform: 'capitalize' }}>{col.replaceAll('_', ' ')}:</strong>{' '}
-                  {prettyValue(row[col])}
-                </p>
-              ))}
-            </article>
-          ))}
-        </div>
+        {(tipoReporte === 'consultas' || (tipoReporte === 'resumen_general' && hasUserRequestedDetail && hasAnySearchInput)) && (
+          <>
+            <h3 className="estudios-section-title" style={{ fontSize: 14, marginTop: 12 }}>Consultas</h3>
+            <div className="estudios-desktop-table">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #dbe4ff', color: '#0f2c7a' }}>
+                      {COLUMN_CONFIG.consultas.map((col) => <th key={col.key} style={{ textAlign: 'left', padding: '10px 8px' }}>{col.label}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {consultaSlice.rows.length === 0 ? <tr><td colSpan={COLUMN_CONFIG.consultas.length} style={{ padding: '12px 8px', color: '#667085' }}>Sin filas de detalle para mostrar.</td></tr> : consultaSlice.rows.map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #eef2ff' }}>
+                        {COLUMN_CONFIG.consultas.map((col) => <td key={col.key} style={{ padding: '10px 8px', color: '#1f2f54' }}>{prettyValue(row[col.key])}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="reportes-actions" style={{ marginTop: 8 }}>
+              <button type="button" className="btn-secondary" disabled={consultaSlice.safePage <= 1} onClick={() => setConsultaPage((p) => Math.max(1, p - 1))}>Anterior</button>
+              <span style={{ alignSelf: 'center', fontSize: 12, color: '#60708d' }}>Página {consultaSlice.safePage} de {consultaSlice.totalPages}</span>
+              <button type="button" className="btn-secondary" disabled={consultaSlice.safePage >= consultaSlice.totalPages} onClick={() => setConsultaPage((p) => Math.min(consultaSlice.totalPages, p + 1))}>Siguiente</button>
+            </div>
+          </>
+        )}
+
+        {(tipoReporte.startsWith('recetas') || (tipoReporte === 'resumen_general' && hasUserRequestedDetail && hasAnySearchInput)) && (
+          <>
+            <h3 className="estudios-section-title" style={{ fontSize: 14, marginTop: 12 }}>Recetas</h3>
+            <div className="estudios-desktop-table">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #dbe4ff', color: '#0f2c7a' }}>
+                      {COLUMN_CONFIG.recetas.map((col) => <th key={col.key} style={{ textAlign: 'left', padding: '10px 8px' }}>{col.label}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recetaSlice.rows.length === 0 ? <tr><td colSpan={COLUMN_CONFIG.recetas.length} style={{ padding: '12px 8px', color: '#667085' }}>Sin filas de detalle para mostrar.</td></tr> : recetaSlice.rows.map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #eef2ff' }}>
+                        {COLUMN_CONFIG.recetas.map((col) => <td key={col.key} style={{ padding: '10px 8px', color: '#1f2f54' }}>{prettyValue(row[col.key])}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="reportes-actions" style={{ marginTop: 8 }}>
+              <button type="button" className="btn-secondary" disabled={recetaSlice.safePage <= 1} onClick={() => setRecetaPage((p) => Math.max(1, p - 1))}>Anterior</button>
+              <span style={{ alignSelf: 'center', fontSize: 12, color: '#60708d' }}>Página {recetaSlice.safePage} de {recetaSlice.totalPages}</span>
+              <button type="button" className="btn-secondary" disabled={recetaSlice.safePage >= recetaSlice.totalPages} onClick={() => setRecetaPage((p) => Math.min(recetaSlice.totalPages, p + 1))}>Siguiente</button>
+            </div>
+          </>
+        )}
+
+        {(tipoReporte === 'triajes' || (tipoReporte === 'resumen_general' && hasUserRequestedDetail && hasAnySearchInput)) && (
+          <>
+            <h3 className="estudios-section-title" style={{ fontSize: 14, marginTop: 12 }}>Triajes</h3>
+            <div className="estudios-desktop-table">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #dbe4ff', color: '#0f2c7a' }}>
+                      {COLUMN_CONFIG.triajes.map((col) => <th key={col.key} style={{ textAlign: 'left', padding: '10px 8px' }}>{col.label}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {triajeSlice.rows.length === 0 ? <tr><td colSpan={COLUMN_CONFIG.triajes.length} style={{ padding: '12px 8px', color: '#667085' }}>Sin filas de detalle para mostrar.</td></tr> : triajeSlice.rows.map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #eef2ff' }}>
+                        {COLUMN_CONFIG.triajes.map((col) => <td key={col.key} style={{ padding: '10px 8px', color: '#1f2f54' }}>{prettyValue(row[col.key])}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="reportes-actions" style={{ marginTop: 8 }}>
+              <button type="button" className="btn-secondary" disabled={triajeSlice.safePage <= 1} onClick={() => setTriajePage((p) => Math.max(1, p - 1))}>Anterior</button>
+              <span style={{ alignSelf: 'center', fontSize: 12, color: '#60708d' }}>Página {triajeSlice.safePage} de {triajeSlice.totalPages}</span>
+              <button type="button" className="btn-secondary" disabled={triajeSlice.safePage >= triajeSlice.totalPages} onClick={() => setTriajePage((p) => Math.min(triajeSlice.totalPages, p + 1))}>Siguiente</button>
+            </div>
+          </>
+        )}
+          </>
+        )}
       </section>
     </div>
   )
