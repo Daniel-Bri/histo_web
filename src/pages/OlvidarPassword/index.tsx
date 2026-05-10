@@ -79,7 +79,7 @@ export default function OlvidarPassword() {
     if (!email.trim()) { setError('Ingresa tu correo electrónico.'); return }
     setLoading(true)
     try {
-      await publicClient.post('auth/forgot-password/', { email: email.trim().toLowerCase() })
+      await publicClient.post('auth/forgot-password/', { email: email.trim().toLowerCase() }, { timeout: 60_000 })
       setStep('code')
     } catch (err: unknown) {
       const axiosErr = err as { response?: { status?: number; data?: { error?: string } }; code?: string }
@@ -90,7 +90,7 @@ export default function OlvidarPassword() {
       } else if (status != null) {
         setError(`Error inesperado del servidor (${status}). Intenta de nuevo.`)
       } else if (axiosErr?.code === 'ECONNABORTED') {
-        setError('La solicitud tardó demasiado. Verifica tu conexión o inténtalo más tarde.')
+        setError('El servidor tardó en responder (puede estar iniciando). Espera unos segundos e inténtalo de nuevo.')
       } else {
         setError('No se pudo conectar con el servidor. Verifica tu conexión a internet.')
       }
