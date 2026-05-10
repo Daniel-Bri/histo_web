@@ -9,9 +9,14 @@ import type {
   UpdateConsultaDTO,
   FichaQueue
 } from '../../services/consultaService';
-import api from '../../api/axios'; // Para cargar triaje
-import LoadingButton from '../../components/ui/LoadingButton';
+import { api } from '../../api/axiosConfig'; // Usar configuración global
+import { useAuth } from '../../hooks/useAuth';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { Shield, Pencil, CheckCircle, Save, FileCheck, Activity, Pill, Info, ArrowLeft } from 'lucide-react';
+
+import EstadoBadge from '../../components/consulta/EstadoBadge';
+import FirmaModal from '../../components/consulta/FirmaModal';
+import HashAuditoriaSection from '../../components/consulta/HashAuditoriaSection';
 
 // --- Estilos de la Imagen (HU013) ---
 const sectionBox = (color: string): React.CSSProperties => ({
@@ -90,12 +95,15 @@ const actionBtn = (bg: string): React.CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  transition: 'all 0.2s',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
 });
 
 export default function ConsultaSOAP() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   
   const [consulta, setConsulta] = useState<ConsultaMedica | null>(null);
   const [triajeData, setTriajeData] = useState<any>(null);
@@ -115,13 +123,26 @@ export default function ConsultaSOAP() {
   const [cieResults, setCieResults] = useState<DiagnosticoCIE10[]>([]);
   const [searchingCie, setSearchingCie] = useState(false);
 
-  const isReadOnly = consulta?.estado === 'COMPLETADA' || consulta?.estado === 'FIRMADA';
+  // Estados para Firma Digital
+  const [isFirmaModalOpen, setIsFirmaModalOpen] = useState(false);
+  const [isSigning, setIsSigning] = useState(false);
+
+  const isEditable = consulta?.estado === 'BORRADOR';
+  const isCompletada = consulta?.estado === 'COMPLETADA';
+  const isFirmada = consulta?.estado === 'FIRMADA';
+  const isReadOnly = isCompletada || isFirmada;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       if (!id) {
+        if (!isAuthenticated) {
+          setQueue([]);
+          setHistorial([]);
+          setLoading(false);
+          return;
+        }
         const [queueRes, historyRes] = await Promise.all([
           consultaService.getQueue().catch(() => ({ data: { results: [] } })),
           consultaService.getAll().catch(() => ({ data: { results: [] } }))
@@ -183,7 +204,7 @@ export default function ConsultaSOAP() {
         // Cargar datos de triaje si existe
         if (res.data.triaje) {
           try {
-            const tRes = await api.get(`/api/triaje/${res.data.triaje}/`);
+            const tRes = await api.get(`triaje/${res.data.triaje}/`);
             setTriajeData(tRes.data);
           } catch (e) { console.error("No triaje found"); }
         }
@@ -250,8 +271,57 @@ export default function ConsultaSOAP() {
     } catch (err) { if (!silent) alert('Error al guardar.'); } finally { if (!silent) setSaving(false); }
   };
 
-  const handleCompletar = async (nuevoEstado: 'COMPLETADA' | 'FIRMADA') => {
+  const handleFirmar = async () => {
+    if (!consulta || isSigning || isFirmada) return;
+    
+    // MODO DEMO: No llamar al backend si es un ID de prueba
+    if ([101, 102, 103].includes(consulta.id)) {
+      setIsSigning(true);
+      setTimeout(() => {
+        const ahora = new Date().toISOString();
+        const nuevaConsulta: ConsultaMedica = { 
+          ...consulta, 
+          estado: 'FIRMADA',
+          hash_documento: 'd2a6e3f8b1c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0',
+          firmada_por: 999,
+          firmada_por_nombre: 'Médico de Prueba',
+          firmada_en: ahora
+        };
+        setConsulta(nuevaConsulta);
+        
+        // Guardar en el historial demo local
+        const nuevoHistorial = [nuevaConsulta, ...demoHistorial.filter(c => c.id !== consulta.id)];
+        setDemoHistorial(nuevoHistorial);
+        localStorage.setItem('histolink_demo_history', JSON.stringify(nuevoHistorial));
+
+        alert('MODO PRUEBA: Consulta firmada digitalmente con éxito (Simulado).');
+        setIsSigning(false);
+        setIsFirmaModalOpen(false);
+      }, 1500);
+      return;
+    }
+
+    try {
+      setIsSigning(true);
+      const res = await consultaService.firmar(consulta.id);
+      setConsulta(res.data);
+      alert('Consulta firmada digitalmente con éxito.');
+      setIsFirmaModalOpen(false);
+    } catch (err) { 
+      alert('Error al firmar la consulta.'); 
+    } finally { 
+      setIsSigning(false); 
+    }
+  };
+
+  const handleCompletar = async (nuevoEstado: 'COMPLETADA' | 'FIRMADA' = 'COMPLETADA') => {
     if (!consulta || isReadOnly) return;
+    
+    // Si se intenta firmar desde aquí, redirigir a handleFirmar
+    if (nuevoEstado === 'FIRMADA') {
+      handleFirmar();
+      return;
+    }
     if (!consulta.motivo_consulta || !consulta.codigo_cie10_principal) {
       alert('El diagnóstico CIE-10 es obligatorio.');
       return;
@@ -281,7 +351,7 @@ export default function ConsultaSOAP() {
       setSaving(true);
       await consultaService.update(consulta.id, { ...consulta, estado: nuevoEstado });
       alert(`Consulta ${nuevoEstado.toLowerCase()} con éxito.`);
-      fetchData();
+      navigate('/consulta'); // Redirigir al panel para ver el cambio (HU013)
     } catch (err) { alert('Error al actualizar estado.'); } finally { setSaving(false); }
   };
 
@@ -353,9 +423,11 @@ export default function ConsultaSOAP() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                       <div style={{ fontWeight: 700, color: '#1E293B' }}>{c.paciente_nombre}</div>
-                      <div style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', background: c.estado === 'BORRADOR' ? '#FEF3C7' : '#D1FAE5', color: c.estado === 'BORRADOR' ? '#92400E' : '#065F46', fontWeight: 700 }}>
-                        {c.estado}
-                      </div>
+                      <EstadoBadge 
+                        estado={c.estado} 
+                        firmadoPor={c.firmada_por_nombre} 
+                        fechaFirma={c.firmada_en} 
+                      />
                     </div>
                     <div style={{ fontSize: '12px', color: '#64748B' }}>{c.codigo_cie10_principal || 'Sin Dx'} | {new Date(c.creado_en).toLocaleDateString()}</div>
                   </div>
@@ -415,11 +487,45 @@ export default function ConsultaSOAP() {
               <strong style={{ fontSize: '18px' }}>{triajeData?.paciente_genero || '--'}</strong>
             </div>
           </div>
-          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '6px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.3)' }}>
-            {consulta.estado}
-          </div>
+          <EstadoBadge 
+            estado={consulta.estado} 
+            firmadoPor={consulta.firmada_por_nombre} 
+            fechaFirma={consulta.firmada_en} 
+          />
         </div>
       </div>
+
+      {/* AVISO DE CONSULTA COMPLETADA (PENDIENTE FIRMA) */}
+      {isCompletada && (
+        <div style={{ 
+          background: '#EFF6FF', 
+          border: '1px solid #BFDBFE', 
+          borderRadius: '12px', 
+          padding: '16px 24px', 
+          marginBottom: '20px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ background: '#DBEAFE', padding: '10px', borderRadius: '50%' }}>
+              <Info style={{ color: '#2563EB', width: '20px', height: '20px' }} />
+            </div>
+            <div>
+              <p style={{ margin: 0, fontWeight: 700, color: '#1E40AF', fontSize: '14px' }}>Consulta Lista para Firma Digital</p>
+              <p style={{ margin: 0, color: '#3B82F6', fontSize: '12px' }}>El registro ha sido finalizado. Proceda a firmar para sellar el documento permanentemente.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setIsFirmaModalOpen(true)}
+            style={{ ...actionBtn('#2563EB'), padding: '12px 24px' }}
+          >
+            <Shield style={{ width: '20px', height: '20px' }} />
+            Firmar Consulta Digitalmente
+          </button>
+        </div>
+      )}
 
       {/* GRID PRINCIPAL 2 COLUMNAS */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
@@ -545,22 +651,55 @@ export default function ConsultaSOAP() {
         />
       </div>
 
+      {/* SECCIÓN DE HASH Y AUDITORÍA (Solo para FIRMADA) */}
+      <HashAuditoriaSection 
+        hash={consulta.hash_documento} 
+        fechaFirma={consulta.firmada_en} 
+      />
+
       <div style={{ height: '30px' }}></div>
 
       {/* BOTONES DE ACCIÓN - IDÉNTICOS A LA IMAGEN */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
-        {!isReadOnly ? (
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '30px', paddingBottom: '40px' }}>
+        {isEditable && (
           <>
-            <button onClick={() => handleSave()} style={actionBtn('#334155')}>💾 Guardar Borrador</button>
-            <button onClick={() => handleCompletar('COMPLETADA')} style={actionBtn('#F59E0B')}>✔️ Marcar Completada</button>
-            <button onClick={() => handleCompletar('FIRMADA')} style={actionBtn('#059669')}>🖋️ Marcar Firmada</button>
+            <button onClick={() => handleSave()} disabled={saving} style={actionBtn('#334155')}>
+              <Save style={{ width: '18px', height: '18px' }} /> Guardar Borrador
+            </button>
+            <button onClick={() => handleCompletar('COMPLETADA')} disabled={saving} style={actionBtn('#F59E0B')}>
+               <FileCheck style={{ width: '18px', height: '18px' }} /> Finalizar Consulta
+             </button>
           </>
-        ) : (
-          <div style={{ background: '#E2E8F0', padding: '12px 40px', borderRadius: '8px', fontWeight: 700, color: '#475569' }}>
-            CONSULTA {consulta.estado} - SOLO LECTURA
+        )}
+        
+        {isCompletada && (
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'white', padding: '8px 16px', borderRadius: '8px', border: '1px solid #BFDBFE' }}>
+            <span style={{ color: '#64748B', fontWeight: 600, fontSize: '14px' }}>Estado: Finalizada</span>
+            <button 
+              onClick={() => setIsFirmaModalOpen(true)} 
+              disabled={isSigning} 
+              style={actionBtn('#059669')}
+            >
+              <Shield style={{ width: '18px', height: '18px' }} /> Firmar Consulta Digitalmente
+            </button>
+          </div>
+        )}
+
+        {isFirmada && (
+          <div style={{ background: '#DBEAFE', padding: '12px 40px', borderRadius: '8px', fontWeight: 700, color: '#1E40AF', border: '1px solid #93C5FD', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Shield style={{ width: '20px', height: '20px' }} />
+            <span>🔒 REGISTRO CLINICO SELLADO (Inmutable)</span>
           </div>
         )}
       </div>
+
+      {/* MODAL DE FIRMA DIGITAL */}
+      <FirmaModal 
+        isOpen={isFirmaModalOpen} 
+        onClose={() => setIsFirmaModalOpen(false)} 
+        onConfirm={handleFirmar} 
+        isSigning={isSigning} 
+      />
 
     </div>
   );

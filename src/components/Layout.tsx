@@ -161,6 +161,10 @@ const NAV: NavSection[] = [
   {
     title: 'Atención Clínica',
     items: [
+      { label: 'Nueva Consulta SOAP', path: '/consulta', icon: 'clipboard', roles: ['Médico', 'Director', 'ADMIN', 'Admin'] },
+      { label: 'Historial Clínico', icon: 'file', soon: true },
+      { label: 'Documentos', icon: 'file', soon: true },
+      { label: 'Agenda', icon: 'calendar', soon: true },
       { label: 'Apertura de ficha', path: '/fichas/cola-dia', icon: 'clipboard', roles: ['Administrativo', 'Director'] },
       { label: 'Urgencias',          path: '/urgencias',                   icon: 'activity',  roles: ['Médico', 'Enfermera', 'Administrativo', 'Director'] },
       { label: 'Solicitar estudio',  path: '/estudios/solicitud',          icon: 'clipboard', roles: ['Médico', 'Administrativo', 'Director'] },
@@ -180,7 +184,7 @@ const NAV: NavSection[] = [
   {
     title: 'Seguridad y Admin',
     items: [
-      { label: 'Auditoría',      icon: 'shield',   soon: true, roles: ['Auditor', 'Director'] },
+      { label: 'Auditoría',      path: '/auditoria/bitacora', icon: 'shield', roles: ['Auditor', 'Director', 'ADMIN', 'Admin'] },
       { label: 'Configuración',  path: '/configuracion', icon: 'settings', roles: ['Administrativo', 'Director'] },
     ],
   },

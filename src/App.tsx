@@ -27,6 +27,7 @@ import AdminTenants from './pages/AdminTenants'
 import TenantDetalle from './pages/AdminTenants/TenantDetalle'
 import UsuariosPorClinica from './pages/AdminTenants/UsuariosPorClinica'
 import Bitacora from './pages/Auditoria/Bitacora'
+import ConsultaSOAP from './pages/consulta/ConsultaSOAP'
 import './pages/Estudios.css' 
 
 export default function App() {
@@ -54,6 +55,8 @@ export default function App() {
           <Route path="/urgencias"                    element={<UrgenciasPage />} />
           <Route path="/urgencias/:fichaId/triaje"  element={<TriajeForm />} />
           <Route path="/fichas/cola-dia"             element={<AperturaFichaColaDia />} />
+          <Route path="/consulta"                    element={<ConsultaSOAP />} />
+          <Route path="/consulta/:id"                element={<ConsultaSOAP />} />
           <Route path="/historial"  element={<EnConstruccion titulo="Historial Clínico" />} />
           <Route path="/documentos" element={<EnConstruccion titulo="Documentos" />} />
           <Route path="/agenda"     element={<EnConstruccion titulo="Agenda" />} />

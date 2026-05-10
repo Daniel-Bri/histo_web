@@ -1,4 +1,4 @@
-import api from '../api/axios';
+import { api } from '../api/axiosConfig';
 
 export interface DiagnosticoCIE10 {
   codigo: string;
@@ -38,6 +38,11 @@ export interface ConsultaMedica {
   // SOAP-P
   plan_tratamiento: string;
   indicaciones_alta: string;
+  // Firma Digital (T022 / CU11)
+  hash_documento?: string;
+  firmada_por?: number;
+  firmada_por_nombre?: string;
+  firmada_en?: string;
   // Otros
   creado_en: string;
   actualizado_en: string;
@@ -56,11 +61,12 @@ export interface FichaQueue {
 export type UpdateConsultaDTO = Partial<ConsultaMedica>;
 
 export const consultaService = {
-  getById: (id: number) => api.get<ConsultaMedica>(`/api/consultas/${id}/`),
-  create: (fichaId: number) => api.post<ConsultaMedica>(`/api/consultas/`, { ficha: fichaId }),
-  update: (id: number, data: UpdateConsultaDTO) => api.patch(`/api/consultas/${id}/`, data),
-  completar: (id: number) => api.patch<ConsultaMedica>(`/api/consultas/${id}/completar/`),
-  searchCIE10: (termino: string) => api.get<DiagnosticoCIE10[]>(`/api/auditoria/cie10/search/?q=${termino}`),
-  getAll: (params?: any) => api.get<{ results: ConsultaMedica[] }>('/api/consultas/', { params }),
-  getQueue: () => api.get<{ results: any[] }>('/api/fichas/', { params: { en_curso: true, estado: 'EN_TRIAJE' } })
+  getById: (id: number) => api.get<ConsultaMedica>(`consultas/${id}/`),
+  create: (fichaId: number) => api.post<ConsultaMedica>(`consultas/`, { ficha: fichaId }),
+  update: (id: number, data: UpdateConsultaDTO) => api.patch(`consultas/${id}/`, data),
+  completar: (id: number) => api.patch<ConsultaMedica>(`consultas/${id}/completar/`),
+  firmar: (id: number) => api.patch<ConsultaMedica>(`consultas/${id}/firmar/`),
+  searchCIE10: (termino: string) => api.get<DiagnosticoCIE10[]>(`auditoria/cie10/search/?q=${termino}`),
+  getAll: (params?: any) => api.get<{ results: ConsultaMedica[] }>('consultas/', { params }),
+  getQueue: () => api.get<{ results: any[] }>('fichas/', { params: { en_curso: true, estado: 'EN_TRIAJE' } })
 };
