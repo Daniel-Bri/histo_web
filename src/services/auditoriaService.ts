@@ -1,5 +1,5 @@
 import { api, API_BASE_URL } from '../api/axiosConfig';
-import { BitacoraFilters, BitacoraResponse } from '../types/auditoria.types';
+import type { BitacoraFilters, BitacoraResponse } from '../types/auditoria.types';
 
 export const auditoriaService = {
   getBitacora: async (filters: BitacoraFilters): Promise<BitacoraResponse> => {
