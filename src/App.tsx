@@ -28,7 +28,9 @@ import TenantDetalle from './pages/AdminTenants/TenantDetalle'
 import UsuariosPorClinica from './pages/AdminTenants/UsuariosPorClinica'
 import Bitacora from './pages/Auditoria/Bitacora'
 import ConsultaSOAP from './pages/consulta/ConsultaSOAP'
-import './pages/Estudios.css' 
+import RiesgosClinicosPanel from './pages/RiesgosClinicosPanel'
+import RiesgosGlobal from './pages/RiesgosGlobal'
+import './pages/Estudios.css'
 
 export default function App() {
   return (
@@ -49,6 +51,8 @@ export default function App() {
           <Route path="/pacientes/:id/expediente"           element={<ExpedientePaciente />} />
           <Route path="/pacientes/:id/editar"               element={<EditarPaciente />} />
           <Route path="/pacientes/:id/antecedentes/editar"  element={<EditarAntecedentes />} />
+          <Route path="/pacientes/:id/riesgos"             element={<RiesgosClinicosPanel />} />
+          <Route path="/riesgos"                           element={<RiesgosGlobal />} />
           <Route path="/personal"           element={<PersonalList />} />
           <Route path="/personal/nuevo"     element={<PersonalForm />} />
           <Route path="/personal/:id/editar" element={<PersonalForm />} />
