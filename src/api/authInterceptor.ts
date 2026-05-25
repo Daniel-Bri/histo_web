@@ -88,6 +88,13 @@ function redirectToLogin() {
   }
 }
 
+function shouldSkip403Redirect(config: RetriableConfig | undefined): boolean {
+  if (!config) return false
+  const url = String(config.url ?? '')
+  if (url.includes('expediente/') && url.includes('/expediente/')) return true
+  return false
+}
+
 export function attachAuthInterceptors(client: AxiosInstance) {
   client.interceptors.request.use(async (config) => {
     if (isAuthPublicUrl(config.url)) {
@@ -120,6 +127,10 @@ export function attachAuthInterceptors(client: AxiosInstance) {
 
       // 403 → redirigir a pantalla de acceso denegado (sin cerrar sesión)
       if (status === 403) {
+        const skip403Redirect = shouldSkip403Redirect(original)
+        if (skip403Redirect) {
+          return Promise.reject(error)
+        }
         if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/acceso-denegado')) {
           window.location.assign('/acceso-denegado')
         }
