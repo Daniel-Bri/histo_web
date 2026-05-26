@@ -25,6 +25,8 @@ export default function Pacientes() {
   const [pagina, setPagina]             = useState(1)
   const [totalPaginas, setTotalPaginas] = useState(1)
   const [total, setTotal]               = useState(0)
+  const [soloMisPacientes, setSoloMisPacientes] = useState(true)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640)
   const POR_PAGINA = 10
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -33,6 +35,7 @@ export default function Pacientes() {
     setError('')
     try {
       const params: Record<string, string | number> = { page: pag, page_size: POR_PAGINA }
+      if (soloMisPacientes) params.mis_pacientes = 'true'
       if (search) params.search = search
       const res = await api.get<PaginatedResponse>('pacientes/pacientes/', { params })
       setPacientes(res.data.results)
@@ -46,7 +49,7 @@ export default function Pacientes() {
     }
   }
 
-  useEffect(() => { buscarPacientes(1, '') }, [])
+  useEffect(() => { buscarPacientes(1, '') }, [soloMisPacientes])
 
   // Búsqueda automática con debounce 300ms al escribir
   useEffect(() => {
@@ -54,6 +57,12 @@ export default function Pacientes() {
     debounceRef.current = setTimeout(() => { void buscarPacientes(1, busqueda) }, 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [busqueda])
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   return (
     <div style={{ padding: '32px' }}>
@@ -82,17 +91,75 @@ export default function Pacientes() {
         marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,3,184,0.06)',
         display: 'flex', gap: '10px', flexWrap: 'wrap',
       }}>
+        <div style={{ display: 'flex', gap: 8, width: '100%', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setSoloMisPacientes(true)}
+            style={{
+              padding: '7px 12px',
+              borderRadius: 999,
+              border: soloMisPacientes ? '2px solid #0B3BDE' : '1px solid #BFD1FF',
+              background: soloMisPacientes ? '#0B3BDE' : '#EDF3FF',
+              color: soloMisPacientes ? '#FFF' : '#0B3BDE',
+              fontWeight: 600,
+              cursor: 'pointer',
+              width: isMobile ? '100%' : 'auto',
+            }}
+          >
+            Mis pacientes
+          </button>
+          <button
+            type="button"
+            onClick={() => setSoloMisPacientes(false)}
+            style={{
+              padding: '7px 12px',
+              borderRadius: 999,
+              border: !soloMisPacientes ? '2px solid #C62828' : '1px solid #F3B4B4',
+              background: !soloMisPacientes ? '#C62828' : '#FFF2F2',
+              color: !soloMisPacientes ? '#FFF' : '#C62828',
+              fontWeight: 600,
+              cursor: 'pointer',
+              width: isMobile ? '100%' : 'auto',
+            }}
+          >
+            Emergencia
+          </button>
+          <span
+            style={{
+              padding: '2px 0',
+              borderRadius: 0,
+              fontSize: 12,
+              fontWeight: 500,
+              background: 'transparent',
+              border: 'none',
+              color: '#64748B',
+              width: '100%',
+            }}
+          >
+            {soloMisPacientes
+              ? 'Modo activo: Mis pacientes'
+              : 'Modo activo: Emergencia (hospital)'}
+          </span>
+        </div>
         <input
-          placeholder="Buscar por CI o apellido... (búsqueda automática)"
+          placeholder={soloMisPacientes
+            ? 'Buscar en mis pacientes por CI o apellido...'
+            : 'Buscar paciente para emergencia por CI o apellido...'}
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
-          style={{ flex: 1, minWidth: '200px' }}
+          style={{ flex: 1, minWidth: isMobile ? '100%' : '200px', width: '100%' }}
           autoFocus
         />
         {busqueda && (
           <button
             onClick={() => setBusqueda('')}
-            style={{ padding: '8px 20px', background: 'transparent', color: '#0003B8', border: '1.5px solid #B3D4FF' }}
+            style={{
+              padding: '8px 20px',
+              background: 'transparent',
+              color: '#0003B8',
+              border: '1.5px solid #B3D4FF',
+              width: isMobile ? '100%' : 'auto',
+            }}
           >
             Limpiar
           </button>
@@ -113,6 +180,62 @@ export default function Pacientes() {
         ) : pacientes.length === 0 ? (
           <div style={{ padding: '48px', textAlign: 'center', color: '#888' }}>
             No se encontraron pacientes.
+          </div>
+        ) : isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 10 }}>
+            {pacientes.map((p) => (
+              <div
+                key={p.id}
+                style={{
+                  border: '1px solid #E6EEFF',
+                  borderRadius: 12,
+                  padding: 12,
+                  background: '#FFF',
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 12, color: '#64748B' }}>CI</p>
+                <p style={{ margin: '2px 0 8px 0', fontWeight: 700, color: '#0003B8' }}>
+                  {p.ci}{p.ci_complemento ? `-${p.ci_complemento}` : ''}
+                </p>
+                <p style={{ margin: 0, fontSize: 12, color: '#64748B' }}>Paciente</p>
+                <p style={{ margin: '2px 0 8px 0', fontWeight: 600 }}>
+                  {p.nombre} {p.apellido} {p.apellido_materno || ''}
+                </p>
+                <p style={{ margin: 0, fontSize: 12, color: '#64748B' }}>Nacimiento / Sexo</p>
+                <p style={{ margin: '2px 0 10px 0' }}>{p.fecha_nacimiento} · {SEXO[p.genero] ?? p.genero}</p>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      registrarPacienteReciente({ id: p.id, nombre: `${p.nombre} ${p.apellido}`, ci: p.ci })
+                      navigate(`/pacientes/${p.id}/expediente`)
+                    }}
+                    style={{
+                      background: '#0003B8',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: 8,
+                      padding: '10px 12px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Ver expediente
+                  </button>
+                  <button
+                    onClick={() => navigate(`/pacientes/${p.id}/editar`)}
+                    style={{
+                      background: 'transparent',
+                      color: '#0003B8',
+                      border: '1.5px solid #B3D4FF',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Editar
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
