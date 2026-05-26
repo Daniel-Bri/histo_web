@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api/axiosConfig'
-import { RefreshCw, Plus, CheckCircle, XCircle, Download, Search, User, AlertCircle, X, FileText } from 'lucide-react'
+import { RefreshCw, Plus, CheckCircle, Download, Search, User, AlertCircle, X, FileText } from 'lucide-react'
 import { hasRole } from '../utils/auth'
 import { parseDrfErrorResponse } from '../services/pacienteService'
 import type { Paciente } from '../types/paciente.types'
@@ -190,10 +190,10 @@ export default function Consentimientos() {
       resetForm()
       fetchConsentimientos()
     } catch (err: any) {
-      const { general, field_errors } = parseDrfErrorResponse(err.response?.data)
-      if (field_errors && Object.keys(field_errors).length > 0) {
-        const firstField = Object.keys(field_errors)[0]
-        setFormError(`${firstField}: ${field_errors[firstField][0]}`)
+      const { general, fields } = parseDrfErrorResponse(err.response?.data)
+      if (fields && Object.keys(fields).length > 0) {
+        const firstField = Object.keys(fields)[0]
+        setFormError(`${firstField}: ${fields[firstField]}`)
       } else {
         setFormError(general[0] || 'Error al registrar. Verifique si ya existe un consentimiento activo para este paciente.')
       }

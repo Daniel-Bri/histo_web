@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { useAuth } from '../hooks/useAuth';
+import { hasRole } from '../utils/auth';
 import { fichaService } from '../services/fichaService';
 import { fetchEspecialidades } from '../services/especialidadService';
 import type { Especialidad } from '../services/especialidadService';
@@ -11,7 +11,6 @@ import type { FichaBrief, NivelUrgencia } from '../types/triaje.types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AlertError from '../components/AlertError';
 import ConfirmModal from '../components/ConfirmModal';
-import { useNavigate } from 'react-router-dom';
 
 dayjs.extend(relativeTime);
 dayjs.extend(utc);
@@ -46,8 +45,6 @@ function mapNivelToMeta(nivel?: NivelUrgencia) {
 }
 
 export default function FichasDelDia() {
-  const navigate = useNavigate();
-  const { user } = useAuth();
   const [fichas, setFichas] = useState<FichaBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

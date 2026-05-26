@@ -47,7 +47,6 @@ export default function AperturaFichaColaDia() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   
   // Permisos
-  const esAdmin = useMemo(() => hasRole('Administrativo', 'Director'), [])
   const esMedico = useMemo(() => hasRole('Médico', 'Director'), [])
   
   const hoyIso = useMemo(() => toIsoDay(new Date()), [])
@@ -59,7 +58,7 @@ export default function AperturaFichaColaDia() {
   
   // Búsqueda
   const [searchQuery, setSearchQuery] = useState('')
-  const [searching, setSearching] = useState(false)
+  const [, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<Paciente[]>([])
   
   // Feedback

@@ -16,7 +16,7 @@ function calcEdad(fechaNac: string) {
 
 // ── Fila de paciente ──────────────────────────────────────────────────────────
 function PacienteRow({
-  id, nombre, apellido, ci, fechaNac, genero, onSelect,
+  id: _id, nombre, apellido, ci, fechaNac, genero, onSelect,
 }: {
   id: number; nombre: string; apellido: string
   ci: string; fechaNac?: string; genero?: string
