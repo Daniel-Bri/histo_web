@@ -211,6 +211,20 @@ export default function ExpedientePaciente() {
                 </div>
               </div>
             </div>
+
+            {/* Botón Perfil de Riesgo */}
+            <button
+              onClick={() => navigate(`/pacientes/${id}/riesgos`)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '7px',
+                background: '#0003B8', color: 'white',
+                border: 'none', borderRadius: '10px',
+                padding: '10px 18px', fontWeight: 600, fontSize: '13px',
+                cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              🫀 Perfil de Riesgo Clínico
+            </button>
           </div>
 
           {/* ── Datos generales ── */}

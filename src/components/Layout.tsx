@@ -11,7 +11,7 @@ const LS_LAST_DATE = 'histolink_auto_backup_last_date'
 // ── Pacientes recientes (guardados en sessionStorage) ─────────────────────────
 interface PacienteReciente { id: number; nombre: string; ci: string }
 
-function getPacientesRecientes(): PacienteReciente[] {
+export function getPacientesRecientes(): PacienteReciente[] {
   try { return JSON.parse(sessionStorage.getItem('pacientes_recientes') ?? '[]') as PacienteReciente[] }
   catch { return [] }
 }
