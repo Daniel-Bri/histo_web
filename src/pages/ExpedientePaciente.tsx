@@ -1,8 +1,14 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api } from '../api/axiosConfig'
 import { hasRole } from '../utils/auth'
 import { registrarPacienteReciente } from '../components/Layout'
+import {
+  listarMisSolicitudesBreakGlass,
+  solicitarBreakGlass,
+  type BreakGlassSolicitudItem,
+  type BreakGlassUrgencia,
+} from '../services/breakGlassService'
 
 interface Antecedentes {
   grupo_sanguineo?: string
@@ -123,9 +129,14 @@ function AntBox({ label, value }: { label: string; value?: string }) {
 export default function ExpedientePaciente() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [data, setData]       = useState<ExpedienteData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
+  const [showBreakGlass, setShowBreakGlass] = useState(false)
+  const [breakGlassSolicitud, setBreakGlassSolicitud] = useState<BreakGlassSolicitudItem | null>(null)
+  const [breakGlassPacienteNombre, setBreakGlassPacienteNombre] = useState('')
+  const forceBreakGlassView = searchParams.get('vista') === 'break-glass'
 
   const puedeEditarAntecedentes = hasRole('Médico', 'Enfermera', 'Administrativo', 'Director')
 
@@ -134,15 +145,61 @@ export default function ExpedientePaciente() {
     api.get<ExpedienteData>(`expediente/${id}/expediente/`)
       .then(r => {
         setData(r.data)
+        if (!forceBreakGlassView) setShowBreakGlass(false)
         registrarPacienteReciente({
           id: r.data.id,
           nombre: `${r.data.nombres} ${r.data.apellido_paterno}`,
           ci: r.data.ci,
         })
+        listarMisSolicitudesBreakGlass()
+          .then((solicitudes) => {
+            const pacienteId = Number(id)
+            const ultima = solicitudes
+              .filter((s) => s.paciente_id === pacienteId)
+              .sort((a, b) => new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime())[0]
+            setBreakGlassSolicitud(ultima ?? null)
+            if (ultima?.paciente_nombre) setBreakGlassPacienteNombre(ultima.paciente_nombre)
+          })
+          .catch(() => undefined)
       })
-      .catch(e => setError(e?.response?.data?.error ?? 'No se pudo cargar el expediente.'))
+      .catch(async (e) => {
+        const status = e?.response?.status
+        if (status === 403 && id) {
+          setShowBreakGlass(true)
+          setError('')
+          setData(null)
+          const nombreIntento = e?.response?.data?.paciente_nombre
+          if (typeof nombreIntento === 'string' && nombreIntento.trim()) {
+            setBreakGlassPacienteNombre(nombreIntento)
+          }
+          try {
+            const solicitudes = await listarMisSolicitudesBreakGlass()
+            const pacienteId = Number(id)
+            const ultima = solicitudes
+              .filter((s) => s.paciente_id === pacienteId)
+              .sort((a, b) => new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime())[0]
+            setBreakGlassSolicitud(ultima ?? null)
+            if (ultima?.paciente_nombre) setBreakGlassPacienteNombre(ultima.paciente_nombre)
+          } catch {
+            // sin acción: se mostrará la pantalla igualmente
+          }
+          return
+        }
+        const backendError =
+          e?.response?.data?.error ??
+          e?.response?.data?.detail
+        const isNetworkError =
+          e?.message === 'Network Error' || e?.code === 'ERR_NETWORK'
+        if (status) {
+          setError(`No se pudo cargar el expediente (HTTP ${status}). ${backendError ?? ''}`.trim())
+        } else if (isNetworkError) {
+          setError('No se pudo conectar con el servidor. Verifica que el backend esté encendido.')
+        } else {
+          setError(backendError ?? 'No se pudo cargar el expediente.')
+        }
+      })
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, forceBreakGlassView])
 
   return (
     <div style={{ padding: '32px' }}>
@@ -180,8 +237,27 @@ export default function ExpedientePaciente() {
         </div>
       )}
 
-      {!loading && !error && data && (
+      {!loading && !error && data && !forceBreakGlassView && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {breakGlassSolicitud && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setSearchParams({ vista: 'break-glass' })}
+                style={{
+                  background: '#0003B8',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Ver estado de acceso de emergencia
+              </button>
+            </div>
+          )}
 
           {/* ── Cabecera paciente ── */}
           <div style={{
@@ -399,6 +475,34 @@ export default function ExpedientePaciente() {
           </Section>
         </div>
       )}
+
+      {!loading && showBreakGlass && !forceBreakGlassView && id && (
+        <BreakGlassSolicitudPanel
+          pacienteId={Number(id)}
+          pacienteNombre={breakGlassPacienteNombre}
+          solicitudInicial={breakGlassSolicitud}
+          onVerExpediente={() => {
+            setSearchParams({})
+            setShowBreakGlass(false)
+            window.location.reload()
+          }}
+        />
+      )}
+
+      {!loading && forceBreakGlassView && id && (
+        <BreakGlassSolicitudPanel
+          pacienteId={Number(id)}
+          pacienteNombre={
+            breakGlassPacienteNombre ||
+            (data ? `${data.nombres} ${data.apellido_paterno} ${data.apellido_materno ?? ''}`.trim() : '')
+          }
+          solicitudInicial={breakGlassSolicitud}
+          onVerExpediente={() => {
+            setSearchParams({})
+            setShowBreakGlass(false)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -442,4 +546,263 @@ function Section({ titulo, accion, children }: {
       {children}
     </div>
   )
+}
+
+function BreakGlassSolicitudPanel({
+  pacienteId,
+  pacienteNombre,
+  solicitudInicial,
+  onVerExpediente,
+}: {
+  pacienteId: number
+  pacienteNombre: string
+  solicitudInicial: BreakGlassSolicitudItem | null
+  onVerExpediente: () => void
+}) {
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [justificacion, setJustificacion] = useState('')
+  const [nivelUrgencia, setNivelUrgencia] = useState<BreakGlassUrgencia>('MEDIA')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const [msg, setMsg] = useState('')
+  const [solicitud, setSolicitud] = useState<BreakGlassSolicitudItem | null>(solicitudInicial)
+  const [ahora, setAhora] = useState(Date.now())
+  const chars = justificacion.trim().length
+  const minChars = 20
+
+  useEffect(() => {
+    setSolicitud(solicitudInicial)
+  }, [solicitudInicial])
+
+  useEffect(() => {
+    const t = setInterval(() => setAhora(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    const t = setInterval(async () => {
+      try {
+        const solicitudes = await listarMisSolicitudesBreakGlass()
+        const ultima = solicitudes
+          .filter((s) => s.paciente_id === pacienteId)
+          .sort((a, b) => new Date(b.creado_en).getTime() - new Date(a.creado_en).getTime())[0]
+        if (ultima) setSolicitud(ultima)
+      } catch {
+        // polling silencioso
+      }
+    }, 10000)
+    return () => clearInterval(t)
+  }, [pacienteId])
+
+  const onSubmit = async () => {
+    setError('')
+    setMsg('')
+    if (chars < minChars) {
+      setError(`La justificación debe tener al menos ${minChars} caracteres.`)
+      return
+    }
+    try {
+      setSending(true)
+      const created = await solicitarBreakGlass({
+        paciente_id: pacienteId,
+        justificacion: justificacion.trim(),
+        nivel_urgencia: nivelUrgencia,
+      })
+      setSolicitud(created)
+      setMsg(created.advertencia ?? 'Solicitud enviada. Quedó registrada para revisión.')
+    } catch (e: any) {
+      const status = e?.response?.status
+      const data = e?.response?.data
+      if (status === 400) {
+        const raw = typeof data === 'object' && data ? JSON.stringify(data) : ''
+        if (raw.includes('justificación') || raw.includes('justificacion')) {
+          setError('La justificación no es válida. Verifica que sea clara y suficiente.')
+        } else if (raw.includes('pendiente') || raw.includes('acceso activo')) {
+          setError('Ya existe una solicitud pendiente o un acceso temporal activo para este paciente.')
+        } else {
+          setError('No se pudo registrar la solicitud. Revisa los datos ingresados.')
+        }
+      } else if (status === 401) {
+        setError('Tu sesión expiró. Inicia sesión nuevamente.')
+      } else if (status === 403) {
+        setError('Tu usuario no tiene permisos para solicitar acceso de emergencia.')
+      } else if (status === 404) {
+        setError('El paciente no existe o ya no está disponible.')
+      } else {
+        setError('Ocurrió un error inesperado. Intenta nuevamente.')
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      const key = ev.key.toLowerCase()
+      if (ev.ctrlKey && key === 'f') {
+        ev.preventDefault()
+        textAreaRef.current?.focus()
+      }
+      if (ev.ctrlKey && key === 's') {
+        ev.preventDefault()
+        void onSubmit()
+      }
+      if (key === 'escape') {
+        ev.preventDefault()
+        onVerExpediente()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  })
+
+  useEffect(() => {
+    const dirty = justificacion.trim().length > 0 && !sending
+    if (!dirty) return
+    const onBeforeUnload = (ev: BeforeUnloadEvent) => {
+      ev.preventDefault()
+      ev.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [justificacion, sending])
+
+  const accesoHastaMs = solicitud?.acceso_hasta ? new Date(solicitud.acceso_hasta).getTime() : null
+  const restanteMs = accesoHastaMs ? accesoHastaMs - ahora : 0
+  const accesoActivo = Boolean(solicitud?.acceso_activo && restanteMs > 0)
+  const restanteTxt = accesoActivo ? formatRemaining(restanteMs) : null
+
+  return (
+    <div style={{
+      background: 'white',
+      borderRadius: 14,
+      padding: 24,
+      boxShadow: '0 2px 8px rgba(0,3,184,0.06)',
+      border: '1px solid #E7EEFF',
+    }}>
+      <h2 style={{ fontSize: 20, color: '#0003B8', margin: '0 0 8px 0' }}>Solicitud de Acceso de Emergencia</h2>
+      <p style={{ margin: '0 0 12px 0', color: '#334' }}>
+        Paciente: <strong>{pacienteNombre || `Paciente #${pacienteId}`}</strong>
+      </p>
+      <p style={{ margin: '0 0 18px 0', color: '#334' }}>
+        No tienes permiso para acceder a este expediente. Puedes solicitar acceso de emergencia si existe una
+        situación clínica justificada.
+      </p>
+
+      {solicitud && (
+        <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, border: '1px solid #D7E6FF', background: '#F7FAFF' }}>
+          <p style={{ margin: 0, fontSize: 14 }}>
+            Estado actual: <strong>{solicitud.estado}</strong> | Urgencia: <strong>{solicitud.nivel_urgencia}</strong>
+          </p>
+          {accesoActivo && (
+            <p style={{ margin: '8px 0 0 0', color: '#0B5', fontWeight: 600 }}>
+              Acceso temporal concedido por emergencia. Vence en {restanteTxt}.
+            </p>
+          )}
+          {!accesoActivo && solicitud.estado === 'PENDIENTE' && (
+            <p style={{ margin: '8px 0 0 0', color: '#555' }}>Solicitud pendiente de revisión.</p>
+          )}
+          {accesoActivo && (
+            <button
+              onClick={onVerExpediente}
+              style={{
+                marginTop: 10,
+                background: '#0003B8',
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                padding: '8px 14px',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              Ver expediente
+            </button>
+          )}
+        </div>
+      )}
+
+      <label style={{ display: 'block', fontWeight: 600, color: '#0003B8', marginBottom: 8 }}>Justificación clínica</label>
+      <textarea
+        ref={textAreaRef}
+        value={justificacion}
+        onChange={(e) => setJustificacion(e.target.value)}
+        rows={5}
+        placeholder="Describe la emergencia clínica y por qué necesitas acceso inmediato..."
+        style={{
+          width: '100%',
+          borderRadius: 10,
+          border: '1px solid #C9D9FF',
+          padding: 12,
+          fontFamily: 'inherit',
+          resize: 'vertical',
+          boxSizing: 'border-box',
+        }}
+      />
+      <p style={{ marginTop: 6, fontSize: 12, color: chars >= minChars ? '#2E7D32' : '#888' }}>
+        {chars}/{minChars} caracteres mínimos
+      </p>
+
+      <label style={{ display: 'block', fontWeight: 600, color: '#0003B8', margin: '14px 0 8px 0' }}>Nivel de urgencia</label>
+      <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+        {[
+          { value: 'ALTA', title: 'ALTA', desc: 'Vida en peligro' },
+          { value: 'MEDIA', title: 'MEDIA', desc: 'Urgencia clínica' },
+          { value: 'BAJA', title: 'BAJA', desc: 'Administrativo' },
+        ].map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => setNivelUrgencia(opt.value as BreakGlassUrgencia)}
+            style={{
+              textAlign: 'left',
+              padding: 10,
+              borderRadius: 10,
+              border: nivelUrgencia === opt.value ? '2px solid #0003B8' : '1px solid #D4DDF4',
+              background: nivelUrgencia === opt.value ? '#EEF3FF' : 'white',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ fontWeight: 700, color: '#0003B8' }}>{opt.title}</div>
+            <div style={{ fontSize: 12, color: '#667' }}>{opt.desc}</div>
+          </button>
+        ))}
+      </div>
+
+      <p style={{ marginTop: 14, fontSize: 12, color: '#6B7280' }}>
+        Este acceso queda registrado y será auditado.
+      </p>
+
+      {error && <div style={{ marginTop: 10, color: '#B91C1C', fontSize: 14 }}>{error}</div>}
+      {msg && <div style={{ marginTop: 10, color: '#14532D', fontSize: 14 }}>{msg}</div>}
+
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={sending}
+        style={{
+          marginTop: 14,
+          width: '100%',
+          borderRadius: 10,
+          border: 'none',
+          background: '#1D4ED8',
+          color: 'white',
+          padding: '12px 16px',
+          fontWeight: 700,
+          cursor: sending ? 'not-allowed' : 'pointer',
+          opacity: sending ? 0.7 : 1,
+        }}
+      >
+        {sending ? 'Enviando solicitud...' : 'Solicitar acceso de emergencia'}
+      </button>
+    </div>
+  )
+}
+
+function formatRemaining(ms: number) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }

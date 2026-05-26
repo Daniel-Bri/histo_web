@@ -5,7 +5,8 @@ import timezone from 'dayjs/plugin/timezone';
 import { Navigate } from 'react-router-dom';
 import { hasRole } from '../../utils/auth';
 import { auditoriaService } from '../../services/auditoriaService';
-import { fetchUsuariosSinPerfil, type UsuarioSinPerfil } from '../../services/usuarioService';
+import { fetchUsuariosSinPerfil } from '../../services/usuarioService';
+import type { UsuarioSinPerfil } from '../../services/usuarioService';
 import type { BitacoraEntry, BitacoraFilters } from '../../types/auditoria.types';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import AlertError from '../../components/AlertError';
@@ -37,6 +38,14 @@ const MODULOS = [
 ];
 
 export default function Bitacora() {
+  // Permisos: Administrador o Auditor
+  const isAdminOrAuditor = hasRole('Administrador', 'Auditor');
+
+  if (!isAdminOrAuditor) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+
   const [entries, setEntries] = useState<BitacoraEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
