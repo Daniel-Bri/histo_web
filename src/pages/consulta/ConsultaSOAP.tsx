@@ -115,16 +115,6 @@ const btnToggle = (active: boolean, color: string, bg: string): React.CSSPropert
   transition: 'all 0.2s',
 });
 
-const inputInline: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 10px',
-  border: '1.5px solid #E2E8F0',
-  borderRadius: '6px',
-  fontSize: '13px',
-  color: '#334155',
-  background: '#FCFDFF',
-  outline: 'none',
-};
 
 
 export default function ConsultaSOAP() {
@@ -132,7 +122,7 @@ export default function ConsultaSOAP() {
   const routeFichaId = fichaId ?? null;   // /consulta/ficha/:fichaId
   const routeConsultaId = fichaId ? null : id ?? null;  // /consulta/:id
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  useAuth();
   
   const [consulta, setConsulta] = useState<ConsultaMedica | null>(null);
   const [triajeData, setTriajeData] = useState<any>(null);
