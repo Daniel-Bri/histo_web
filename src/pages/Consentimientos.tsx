@@ -1,18 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
-import { api } from '../api/axiosConfig'
-import { RefreshCw, Plus, CheckCircle, Download, Search, User, AlertCircle, X, FileText, Trash2, Eye } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, CheckCircle, Search, X, FileText } from 'lucide-react'
 import { hasRole } from '../utils/auth'
-import { parseDrfErrorResponse } from '../services/pacienteService'
-import type { Paciente } from '../types/paciente.types'
-
-interface TipoConsentimiento {
-  id: number
-  nombre: string
-  requiere_testigo: boolean
-}
 
 interface Consentimiento {
   id: number
+  paciente_id: number
   paciente_nombre: string
   tipo_nombre: string
   estado: string
@@ -21,6 +13,7 @@ interface Consentimiento {
   registrado_por_nombre: string
   testigo_nombre: string
   es_vigente: boolean
+  justificacion: string
 }
 
 const ESTADO_COLORS: Record<string, { bg: string; text: string }> = {
@@ -29,8 +22,10 @@ const ESTADO_COLORS: Record<string, { bg: string; text: string }> = {
   REVOCADO: { bg: '#F1F5F9', text: '#64748B' },
 }
 
+interface PacienteMock { id: number; nombre: string; apellido: string; ci: string }
+
 // --- MOCK DATA (REQUERIDOS) ---
-const MOCK_PACIENTES: Paciente[] = [
+const MOCK_PACIENTES: PacienteMock[] = [
   { id: 101, nombre: "Lorena", apellido: "García Rocha", ci: "49593002" },
   { id: 102, nombre: "Roberto", apellido: "Chavez Inca", ci: "3001003" },
   { id: 103, nombre: "Maria Elena", apellido: "Torres Vargas", ci: "3001002" },
@@ -54,13 +49,11 @@ const JUSTIFICATION_BUBBLES = [
 ]
 
 export default function Consentimientos() {
-  const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<Consentimiento[]>(() => {
     const saved = localStorage.getItem('h_emergency_consents')
     return saved ? JSON.parse(saved) : []
   })
   const [search, setSearch] = useState('')
-  const [filtroVigente, setFiltroVigente] = useState(false)
 
   // --- Modal y Formulario ---
   const [showModal, setShowModal] = useState(false)
