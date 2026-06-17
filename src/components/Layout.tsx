@@ -181,6 +181,7 @@ const NAV: NavSection[] = [
       { label: 'Cola laboratorio',    path: '/estudios/cola-laboratorio',   icon: 'flask',        roles: ['Laboratorio', 'Administrativo', 'Director'] },
       { label: 'Reportes producción', path: '/reportes/produccion',         icon: 'activity',     roles: ['ADMIN', 'Admin', 'Administrativo', 'Auditor', 'Médico', 'Director'] },
       { label: 'Recetas',             path: '/recetas',                     icon: 'clipboard',    roles: ['Médico', 'Farmacia', 'Administrativo', 'Director'] },
+      { label: 'Cobro de servicios',  path: '/cobros',                      icon: 'clipboard',    roles: ['Administrativo'] },
     ],
   },
   {

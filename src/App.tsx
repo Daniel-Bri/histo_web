@@ -34,6 +34,7 @@ import IdentidadBlockchain from './pages/IdentidadBlockchain'
 import RiesgosClinicosPanel from './pages/RiesgosClinicosPanel'
 import RiesgosGlobal from './pages/RiesgosGlobal'
 import './pages/Estudios.css'
+import CobroServicios from './pages/Cobros/CobroServicios'
 
 export default function App() {
   return (
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/admin/usuarios-clinica"   element={<UsuariosPorClinica />} />
           <Route path="/auditoria/bitacora"        element={<Bitacora />} />
           <Route path="/blockchain/identidad" element={<IdentidadBlockchain />} />
+          <Route path="/cobros" element={<CobroServicios />} />
         </Route>
         
         {/* Redirige la raíz al dashboard */}
