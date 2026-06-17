@@ -125,3 +125,13 @@ export async function subirResultadoEstudio(payload: {
   })
   return data
 }
+
+export async function listarOrdenesPorFicha(fichaId: number): Promise<OrdenEstudioListItem[]> {
+  const { data } = await api.get<OrdenEstudioListItem[] | { results: OrdenEstudioListItem[] }>(
+    'ordenes-estudio/',
+    { params: { ficha: fichaId } },
+  )
+  if (Array.isArray(data)) return data
+  if (data && 'results' in data && Array.isArray(data.results)) return data.results
+  return []
+}
