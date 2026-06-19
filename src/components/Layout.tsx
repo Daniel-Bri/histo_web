@@ -195,6 +195,7 @@ const NAV: NavSection[] = [
     title: 'Seguridad y Admin',
     items: [
       { label: 'Auditoría',      path: '/auditoria/bitacora', icon: 'shield',   roles: ['Auditor', 'Administrativo', 'Director'] },
+      { label: 'Aprobar Break-Glass', path: '/break-glass/aprobaciones', icon: 'shield', roles: ['Auditor', 'Director'] },
       { label: 'Configuración',  path: '/configuracion',      icon: 'settings', roles: ['Administrativo', 'Director'] },
     ],
   },

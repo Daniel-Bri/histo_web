@@ -31,6 +31,24 @@ export interface BreakGlassCreatePayload {
   nivel_urgencia: BreakGlassUrgencia
 }
 
+export interface BreakGlassAprobarResponse {
+  mensaje: string
+  estado: BreakGlassEstado
+  acceso_desde: string | null
+  acceso_hasta: string | null
+}
+
+export interface BreakGlassRechazarPayload {
+  motivo_rechazo: string
+}
+
+export interface BreakGlassRechazarResponse {
+  mensaje: string
+  estado: BreakGlassEstado
+  motivo_rechazo: string
+  notificacion?: Record<string, unknown>
+}
+
 const BASE_PATH = 'seguridad/break-glass/'
 
 export async function solicitarBreakGlass(payload: BreakGlassCreatePayload) {
@@ -43,3 +61,17 @@ export async function listarMisSolicitudesBreakGlass() {
   return Array.isArray(data) ? data : []
 }
 
+export async function listarPendientesBreakGlass() {
+  const { data } = await api.get<BreakGlassSolicitudItem[]>(`${BASE_PATH}pendientes/`)
+  return Array.isArray(data) ? data : []
+}
+
+export async function aprobarBreakGlass(id: number) {
+  const { data } = await api.post<BreakGlassAprobarResponse>(`${BASE_PATH}${id}/aprobar/`)
+  return data
+}
+
+export async function rechazarBreakGlass(id: number, payload: BreakGlassRechazarPayload) {
+  const { data } = await api.post<BreakGlassRechazarResponse>(`${BASE_PATH}${id}/rechazar/`, payload)
+  return data
+}

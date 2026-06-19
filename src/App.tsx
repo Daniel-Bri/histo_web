@@ -33,6 +33,7 @@ import Consentimientos from './pages/Consentimientos'
 import IdentidadBlockchain from './pages/IdentidadBlockchain'
 import RiesgosClinicosPanel from './pages/RiesgosClinicosPanel'
 import RiesgosGlobal from './pages/RiesgosGlobal'
+import AprobacionBreakGlass from './pages/BreakGlass/AprobacionBreakGlass'
 import './pages/Estudios.css'
 import CobroServicios from './pages/Cobros/CobroServicios'
 import ReportesSNIS from './pages/ReportesSNIS'
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/admin/tenants/:id"        element={<TenantDetalle />} />
           <Route path="/admin/usuarios-clinica"   element={<UsuariosPorClinica />} />
           <Route path="/auditoria/bitacora"        element={<Bitacora />} />
+          <Route path="/break-glass/aprobaciones"  element={<AprobacionBreakGlass />} />
           <Route path="/blockchain/identidad" element={<IdentidadBlockchain />} />
           <Route path="/cobros" element={<CobroServicios />} />
         </Route>
