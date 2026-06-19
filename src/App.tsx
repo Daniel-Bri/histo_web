@@ -35,6 +35,7 @@ import RiesgosClinicosPanel from './pages/RiesgosClinicosPanel'
 import RiesgosGlobal from './pages/RiesgosGlobal'
 import './pages/Estudios.css'
 import CobroServicios from './pages/Cobros/CobroServicios'
+import ReportesSNIS from './pages/ReportesSNIS'
 
 export default function App() {
   return (
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/estudios/solicitud" element={<SolicitudEstudios />} />
           <Route path="/estudios/cola-laboratorio" element={<ColaLaboratorio />} />
           <Route path="/reportes/produccion" element={<ReportesProduccion />} />
+          <Route path="/reportes/snis"      element={<ReportesSNIS />} />
           <Route path="/recetas" element={<Recetas />} />
           <Route path="/configuracion"          element={<Configuracion />} />
           <Route path="/admin/tenants"             element={<AdminTenants />} />

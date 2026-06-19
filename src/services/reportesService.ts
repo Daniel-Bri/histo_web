@@ -122,3 +122,71 @@ export async function exportarReporteProduccion(
   })
   return response
 }
+
+// ── CU19 — Reporte SNIS / Morbilidad ─────────────────────────────────────────
+
+export type SexoFiltro = '' | 'M' | 'F'
+
+export interface ReporteSNISFiltros {
+  fecha_desde: string
+  fecha_hasta: string
+  codigo_cie10: string
+  sexo: SexoFiltro
+}
+
+export interface MorbilidadRow {
+  codigo: string
+  descripcion: string
+  total: number
+  masculino: number
+  femenino: number
+  porcentaje: number
+}
+
+export interface ReporteSNISPayload {
+  periodo: { fecha_desde: string; fecha_hasta: string }
+  filtros_aplicados: Partial<ReporteSNISFiltros>
+  resumen: {
+    total_casos: number
+    total_diagnosticos_distintos: number
+  }
+  morbilidad: MorbilidadRow[]
+}
+
+function buildSNISParams(
+  filtros: Partial<ReporteSNISFiltros>,
+  formato: ReporteFormato = 'json',
+): Record<string, string> {
+  const params: Record<string, string> = { formato }
+  for (const [k, v] of Object.entries(filtros) as [string, string][]) {
+    if (v && v.trim()) params[k] = v.trim()
+  }
+  return params
+}
+
+export async function obtenerReporteSNIS(
+  filtros: Partial<ReporteSNISFiltros>,
+): Promise<ReporteSNISPayload> {
+  const { data } = await api.get<ReporteSNISPayload>('reportes/snis/', {
+    params: buildSNISParams(filtros, 'json'),
+  })
+  return data
+}
+
+export async function exportarReporteSNIS(
+  filtros: Partial<ReporteSNISFiltros>,
+  formato: 'csv' | 'excel' | 'pdf',
+) {
+  const ext = formato === 'pdf' ? 'pdf' : formato === 'csv' ? 'csv' : 'xlsx'
+  const response = await api.get<Blob>('reportes/snis/', {
+    params: buildSNISParams(filtros, formato),
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(response.data)
+  const a   = document.createElement('a')
+  const periodo = `${filtros.fecha_desde ?? ''}_${filtros.fecha_hasta ?? ''}`
+  a.href     = url
+  a.download = `reporte_snis_${periodo}.${ext}`
+  a.click()
+  URL.revokeObjectURL(url)
+}
