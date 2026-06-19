@@ -25,6 +25,7 @@ import Configuracion from './pages/Configuracion'
 import AccesoDenegado from './pages/AccesoDenegado'
 import AdminTenants from './pages/AdminTenants'
 import TenantDetalle from './pages/AdminTenants/TenantDetalle'
+import Suscripciones from './pages/AdminTenants/Suscripciones'
 import UsuariosPorClinica from './pages/AdminTenants/UsuariosPorClinica'
 import Bitacora from './pages/Auditoria/Bitacora'
 import ConsultaSOAP from './pages/consulta/ConsultaSOAP'
@@ -36,6 +37,10 @@ import RiesgosGlobal from './pages/RiesgosGlobal'
 import AprobacionBreakGlass from './pages/BreakGlass/AprobacionBreakGlass'
 import './pages/Estudios.css'
 import CobroServicios from './pages/Cobros/CobroServicios'
+import CobroExito from './pages/Cobros/CobroExito'
+import CobroCancelado from './pages/Cobros/CobroCancelado'
+import SaasPagoExito from './pages/SaaS/PagoExito'
+import SaasPagoCancelado from './pages/SaaS/PagoCancelado'
 import ReportesSNIS from './pages/ReportesSNIS'
 
 export default function App() {
@@ -81,11 +86,16 @@ export default function App() {
           <Route path="/configuracion"          element={<Configuracion />} />
           <Route path="/admin/tenants"             element={<AdminTenants />} />
           <Route path="/admin/tenants/:id"        element={<TenantDetalle />} />
+          <Route path="/admin/suscripciones"      element={<Suscripciones />} />
           <Route path="/admin/usuarios-clinica"   element={<UsuariosPorClinica />} />
           <Route path="/auditoria/bitacora"        element={<Bitacora />} />
           <Route path="/break-glass/aprobaciones"  element={<AprobacionBreakGlass />} />
           <Route path="/blockchain/identidad" element={<IdentidadBlockchain />} />
-          <Route path="/cobros" element={<CobroServicios />} />
+          <Route path="/cobros"           element={<CobroServicios />} />
+          <Route path="/cobros/exito"     element={<CobroExito />} />
+          <Route path="/cobros/cancelado" element={<CobroCancelado />} />
+          <Route path="/saas/pago/exito"     element={<SaasPagoExito />} />
+          <Route path="/saas/pago/cancelado" element={<SaasPagoCancelado />} />
         </Route>
         
         {/* Redirige la raíz al dashboard */}

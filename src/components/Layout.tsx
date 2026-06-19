@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { getStoredUser } from '../utils/auth'
 import { exportarTenant } from '../services/configuracionService'
+import { solicitarPermisoYObtenerToken, escucharNotificacionesPrimerPlano } from '../firebase'
+import { registrarTokenFCM } from '../services/notificacionesService'
 
 const LS_ENABLED   = 'histolink_auto_backup_enabled'
 const LS_HOUR      = 'histolink_auto_backup_hour'
@@ -204,6 +206,7 @@ const NAV: NavSection[] = [
     staffOnly: true,
     items: [
       { label: 'Panel SaaS', path: '/admin/tenants', icon: 'cpu', staffOnly: true },
+      { label: 'Suscripciones', path: '/admin/suscripciones', icon: 'credit-card', staffOnly: true },
       { label: 'Usuarios por Clínica', path: '/admin/usuarios-clinica', icon: 'users', staffOnly: true },
     ],
   },
@@ -245,6 +248,34 @@ export default function Layout() {
 
   const toggleSection = (title: string) =>
     setSectionsOpen(prev => ({ ...prev, [title]: !prev[title] }))
+
+  // ── Notificaciones push FCM ───────────────────────────────────────────────
+  const [toast, setToast] = useState<{ titulo: string; cuerpo: string } | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    let token: string | null = null
+
+    const init = async () => {
+      try {
+        token = await solicitarPermisoYObtenerToken()
+        if (token) await registrarTokenFCM(token, 'web')
+      } catch {
+        // Si falla el registro FCM no bloqueamos la app
+      }
+    }
+    init()
+
+    escucharNotificacionesPrimerPlano((titulo, cuerpo) => {
+      setToast({ titulo, cuerpo })
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+      toastTimer.current = setTimeout(() => setToast(null), 6000)
+    })
+
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+    }
+  }, [])
 
   // Refrescar lista cuando se registra un paciente reciente desde cualquier pantalla
   useEffect(() => {
@@ -590,6 +621,33 @@ export default function Layout() {
       <main style={{ flex: 1, background: '#F0F6FF', overflowY: 'auto' }}>
         <Outlet />
       </main>
+
+      {/* ── TOAST DE NOTIFICACIÓN PUSH (primer plano) ── */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 9999,
+          background: '#1e293b', color: '#fff', borderRadius: '0.5rem',
+          padding: '0.875rem 1.25rem', maxWidth: '320px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+          display: 'flex', flexDirection: 'column', gap: '0.25rem',
+          animation: 'slideIn 0.3s ease',
+        }}>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#60a5fa' }}>
+            {toast.titulo}
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: '#cbd5e1' }}>
+            {toast.cuerpo}
+          </div>
+          <button
+            onClick={() => setToast(null)}
+            style={{
+              position: 'absolute', top: '0.4rem', right: '0.6rem',
+              background: 'none', border: 'none', color: '#94a3b8',
+              cursor: 'pointer', fontSize: '1rem', lineHeight: 1,
+            }}
+          >×</button>
+        </div>
+      )}
     </div>
   )
 }

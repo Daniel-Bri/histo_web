@@ -9,9 +9,18 @@ import {
   type TenantResumen,
   type ConfiguracionTenant,
 } from '../../services/configuracionService'
+import {
+  getSuscripcion,
+  patchSuscripcion,
+  crearPagoSaaS,
+  PLAN_LABELS,
+  ESTADO_LABELS,
+  ESTADO_COLOR,
+  type SuscripcionTenant,
+} from '../../services/saasService'
 import { getStoredUser } from '../../utils/auth'
 
-type Tab = 'datos' | 'configuracion' | 'modulos'
+type Tab = 'datos' | 'configuracion' | 'modulos' | 'suscripcion'
 
 const IDIOMAS = [
   { value: 'es', label: 'Español' },
@@ -81,6 +90,14 @@ export default function TenantDetalle() {
   // Módulos
   const [modulosHab, setModulosHab] = useState<string[]>([])
 
+  // Suscripción
+  const [sub,        setSub]        = useState<SuscripcionTenant | null>(null)
+  const [subPlan,    setSubPlan]    = useState<string>('BASICO')
+  const [subEstado,  setSubEstado]  = useState<string>('PENDIENTE')
+  const [subMonto,   setSubMonto]   = useState<string>('50.00')
+  const [subLoading, setSubLoading] = useState(false)
+  const [payLoading, setPayLoading] = useState(false)
+
   useEffect(() => {
     void (async () => {
       try {
@@ -90,6 +107,11 @@ export default function TenantDetalle() {
         setEmailContacto(cfg.email_contacto); setSitioWeb(cfg.sitio_web)
         setIdioma(cfg.idioma); setMoneda(cfg.moneda); setZonaHoraria(cfg.zona_horaria)
         setModulosHab(cfg.modulos_habilitados)
+        // Cargar suscripción en paralelo
+        try {
+          const s = await getSuscripcion(tenantId)
+          setSub(s); setSubPlan(s.plan); setSubEstado(s.estado); setSubMonto(s.monto_mensual)
+        } catch { /* suscripción puede no existir aún */ }
       } catch {
         flash('err', 'No se pudo cargar el establecimiento.')
       } finally {
@@ -144,10 +166,31 @@ export default function TenantDetalle() {
   if (loading) return <div style={{ padding: '60px', textAlign: 'center', color: '#64748B' }}>Cargando…</div>
   if (!tenant) return <div style={{ padding: '60px', textAlign: 'center', color: '#64748B' }}>Establecimiento no encontrado.</div>
 
+  async function handleGuardarSub() {
+    setSubLoading(true)
+    try {
+      const upd = await patchSuscripcion(tenantId, { plan: subPlan as SuscripcionTenant['plan'], estado: subEstado as SuscripcionTenant['estado'], monto_mensual: subMonto })
+      setSub(upd)
+      flash('ok', 'Suscripción actualizada.')
+    } catch { flash('err', 'Error al guardar suscripción.') }
+    finally { setSubLoading(false) }
+  }
+
+  async function handleGenerarPago() {
+    setPayLoading(true)
+    try {
+      const { checkout_url } = await crearPagoSaaS(tenantId)
+      window.open(checkout_url, '_blank')
+      flash('ok', 'Link de pago generado. Se abrió en una nueva pestaña.')
+    } catch { flash('err', 'Error al generar el link de pago.') }
+    finally { setPayLoading(false) }
+  }
+
   const TABS: { id: Tab; label: string }[] = [
     { id: 'datos',         label: 'Datos del establecimiento' },
     { id: 'configuracion', label: 'Configuración' },
     { id: 'modulos',       label: 'Módulos' },
+    { id: 'suscripcion',   label: 'Suscripción' },
   ]
 
   return (
@@ -347,6 +390,96 @@ export default function TenantDetalle() {
           <button style={btnP} onClick={() => void handleGuardarModulos()} disabled={saving}>
             {saving ? 'Guardando…' : 'Guardar módulos'}
           </button>
+        </div>
+      )}
+
+      {/* ── Tab: Suscripción ── */}
+      {tab === 'suscripcion' && (
+        <div>
+          {/* Estado actual */}
+          <div style={{ ...card, display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: '50%',
+              background: sub ? `${ESTADO_COLOR[sub.estado as SuscripcionTenant['estado']]}18` : '#F1F5F9',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26,
+            }}>
+              {sub?.estado === 'ACTIVA' ? '✓' : sub?.estado === 'SUSPENDIDA' ? '⛔' : sub?.estado === 'EXPIRADA' ? '⚠' : '⏳'}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>Estado actual</div>
+              <div style={{
+                fontSize: 20, fontWeight: 700,
+                color: sub ? ESTADO_COLOR[sub.estado as SuscripcionTenant['estado']] : '#64748B',
+              }}>
+                {sub ? ESTADO_LABELS[sub.estado as SuscripcionTenant['estado']] : 'Sin suscripción'}
+              </div>
+              {sub?.fecha_vencimiento && (
+                <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 2 }}>
+                  Vence: {new Date(sub.fecha_vencimiento).toLocaleDateString('es-BO')}
+                  {sub.fecha_ultimo_pago && (
+                    <> · Último pago: {new Date(sub.fecha_ultimo_pago).toLocaleDateString('es-BO')}</>
+                  )}
+                </div>
+              )}
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 13, color: '#64748B' }}>Plan</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#1E293B' }}>
+                {sub ? PLAN_LABELS[sub.plan as SuscripcionTenant['plan']] : '—'}
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#1d4ed8', marginTop: 2 }}>
+                ${sub ? parseFloat(sub.monto_mensual).toFixed(2) : '0.00'} <span style={{ fontSize: 12, fontWeight: 400, color: '#94A3B8' }}>USD/mes</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Edición */}
+          <div style={card}>
+            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#1E293B', margin: '0 0 20px' }}>Configurar suscripción</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+              <div style={fieldRow}>
+                <label style={lbl}>Plan</label>
+                <select style={inp} value={subPlan} onChange={e => setSubPlan(e.target.value)}>
+                  <option value="BASICO">Básico</option>
+                  <option value="PROFESIONAL">Profesional</option>
+                  <option value="ENTERPRISE">Enterprise</option>
+                </select>
+              </div>
+              <div style={fieldRow}>
+                <label style={lbl}>Estado</label>
+                <select style={inp} value={subEstado} onChange={e => setSubEstado(e.target.value)}>
+                  <option value="PENDIENTE">Pendiente de pago</option>
+                  <option value="ACTIVA">Activa</option>
+                  <option value="EXPIRADA">Expirada</option>
+                  <option value="SUSPENDIDA">Suspendida</option>
+                </select>
+              </div>
+              <div style={fieldRow}>
+                <label style={lbl}>Monto mensual (USD)</label>
+                <input style={inp} type="number" step="0.01" min="0" value={subMonto} onChange={e => setSubMonto(e.target.value)} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button style={btnP} onClick={() => void handleGuardarSub()} disabled={subLoading}>
+                {subLoading ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+              <button
+                onClick={() => void handleGenerarPago()}
+                disabled={payLoading}
+                style={{
+                  padding: '8px 20px', borderRadius: '8px', border: 'none',
+                  background: '#1d4ed8', color: '#fff', fontSize: '13px', fontWeight: 600,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                {payLoading ? 'Generando…' : '💳 Generar link de pago'}
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 12 }}>
+              Al generar el link de pago se abre Stripe Checkout. Comparte ese link con la clínica para que realice el pago.
+              Stripe notificará automáticamente al sistema cuando el pago se confirme.
+            </p>
+          </div>
         </div>
       )}
     </div>
