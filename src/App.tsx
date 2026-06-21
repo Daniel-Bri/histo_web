@@ -42,6 +42,7 @@ import CobroCancelado from './pages/Cobros/CobroCancelado'
 import SaasPagoExito from './pages/SaaS/PagoExito'
 import SaasPagoCancelado from './pages/SaaS/PagoCancelado'
 import ReportesSNIS from './pages/ReportesSNIS'
+import GestionPermisos from './pages/GestionPermisos'
 
 export default function App() {
   return (
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="/admin/usuarios-clinica"   element={<UsuariosPorClinica />} />
           <Route path="/auditoria/bitacora"        element={<Bitacora />} />
           <Route path="/break-glass/aprobaciones"  element={<AprobacionBreakGlass />} />
+          <Route path="/permisos"                  element={<GestionPermisos />} />
           <Route path="/blockchain/identidad" element={<IdentidadBlockchain />} />
           <Route path="/cobros"           element={<CobroServicios />} />
           <Route path="/cobros/exito"     element={<CobroExito />} />

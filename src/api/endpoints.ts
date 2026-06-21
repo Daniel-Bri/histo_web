@@ -5,3 +5,9 @@ export const AUTH = {
   /** SimpleJWT: POST { refresh } → { access } */
   TOKEN_REFRESH: 'auth/token/refresh/',
 } as const
+
+export const PERMISOS = {
+  LISTAR:  'permisos/',
+  OTORGAR: 'permisos/otorgar/',
+  REVOCAR: 'permisos/revocar/',
+} as const

@@ -143,6 +143,12 @@ function Icon({ name, size = 15 }: { name: string; size?: number }) {
         <rect x="1" y="1" width="14" height="14" rx="2" />
       </svg>
     ),
+    'badge-check': (
+      <svg viewBox="0 0 16 16" style={s} {...p}>
+        <path d="M8 1.5l5.5 2v4C13.5 11.5 11 14 8 15 5 14 2.5 11.5 2.5 7.5v-4z" />
+        <polyline points="5.5 8 7 9.5 10.5 6" />
+      </svg>
+    ),
   }
 
   return icons[name as keyof typeof icons] ?? null
@@ -196,9 +202,10 @@ const NAV: NavSection[] = [
   {
     title: 'Seguridad y Admin',
     items: [
-      { label: 'Auditoría',      path: '/auditoria/bitacora', icon: 'shield',   roles: ['Auditor', 'Administrativo', 'Director'] },
-      { label: 'Aprobar Break-Glass', path: '/break-glass/aprobaciones', icon: 'shield', roles: ['Auditor', 'Director'] },
-      { label: 'Configuración',  path: '/configuracion',      icon: 'settings', roles: ['Administrativo', 'Director'] },
+      { label: 'Auditoría',          path: '/auditoria/bitacora',       icon: 'shield',      roles: ['Auditor', 'Administrativo', 'Director'] },
+      { label: 'Aprobar Break-Glass', path: '/break-glass/aprobaciones', icon: 'shield',      roles: ['Auditor', 'Director'] },
+      { label: 'Permisos de Acceso',  path: '/permisos',                 icon: 'badge-check', roles: ['Administrativo', 'Director', 'Auditor'] },
+      { label: 'Configuración',       path: '/configuracion',            icon: 'settings',    roles: ['Administrativo', 'Director'] },
     ],
   },
   {
