@@ -266,7 +266,11 @@ export default function Layout() {
     const init = async () => {
       try {
         token = await solicitarPermisoYObtenerToken()
-        if (token) await registrarTokenFCM(token, 'web')
+        if (token) {
+          await registrarTokenFCM(token, 'web')
+          // Guardamos el token para poder darlo de baja en el logout.
+          localStorage.setItem('fcm_token', token)
+        }
       } catch {
         // Si falla el registro FCM no bloqueamos la app
       }
