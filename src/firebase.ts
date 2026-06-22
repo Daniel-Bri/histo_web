@@ -26,9 +26,15 @@ export async function solicitarPermisoYObtenerToken(): Promise<string | null> {
       return null
     }
 
+    // Registrar el SW y ESPERAR a que esté ACTIVO. getToken() hace
+    // PushManager.subscribe(), que falla con "no active Service Worker" si se
+    // llama justo después de register() (el SW aún está en 'installing').
+    await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    const registration = await navigator.serviceWorker.ready
+
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: await navigator.serviceWorker.register('/firebase-messaging-sw.js'),
+      serviceWorkerRegistration: registration,
     })
 
     if (token) {
